@@ -144,7 +144,7 @@ def mlir_opt(source: str, options: List[str], mlir_opt="mlir-opt"):
     :return: Transformed *source* as emitted by ``mlir-opt``.
     """
     assert "-o" not in options
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".mlir") as fp:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".mlir", delete=False) as fp:
         fp.write(source)
         fp.file.flush()
 

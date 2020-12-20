@@ -22,6 +22,14 @@ class Node(object):
         for k, v in fields.items():
             setattr(self, k, v)
 
+    @classmethod
+    def from_fields(cls, **kwargs):
+        if set(kwargs.keys()) != set(cls._fields_):
+            print(f"'{cls.__name__}' needs '{cls._fields_}' arguments,"
+                    f" received {list(kwargs.keys())}.")
+
+        return cls(None, **kwargs)
+
     def dump_ast(self) -> str:
         """ Dumps the AST node and its fields in raw AST format. For example:
             Module(name="example", body=[])
@@ -100,7 +108,8 @@ class SsaId(Identifier):
     def dump(self, indent: int = 0) -> str:
         if self.index:
             return self._prefix_ + self.value + ("#%s" % self.index)
-        return self._prefix_ + self.value
+
+        return super().dump(indent)
 
 
 class SymbolRefId(Identifier):
