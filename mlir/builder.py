@@ -57,7 +57,7 @@ class IRBuilder:
     F64 = ast.FloatType(type=ast.FloatTypeEnum.f32)
     INT32 = ast.IntegerType(32)
     INT64 = ast.IntegerType(64)
-    INDEX = ast.IndexType
+    INDEX = ast.IndexType()
 
     def MemRefType(self,
                    name: str,
@@ -71,7 +71,7 @@ class IRBuilder:
         else:
             return ast.RankedMemRefType.from_fields(...)
 
-    def _append_op_to_current_block(self, op_result, op):
+    def _append_op_to_current_block(self, op_results, op):
         if self.current_function is None:
             raise ValueError("Not within a function to add args to it.")
 
@@ -81,7 +81,7 @@ class IRBuilder:
             fnbody.append(self.current_block)
 
         body = self.current_block.body
-        body.append(ast.Operation.from_fields(result_list=[op_result], op=op,
+        body.append(ast.Operation.from_fields(result_list=op_results, op=op,
                                               location=None))
 
     def make_module(self, name: str) -> ast.Module:
@@ -103,9 +103,10 @@ class IRBuilder:
         self.current_function = ast.Function.from_fields(name=ast.SymbolRefId.from_fields(value=name))
         return self.current_function
 
-    def make_block(self, name: str) -> ast.Block:
-        self.current_block = ast.Block.from_fields(...)
-        return self.current_block
+    def make_block(self, region: ast.Reagion, name: Optional[str]) -> ast.Block:
+        self.block = ast.Block.from_fields(...)
+        region.body.append(self.block)
+        return self.block
 
     def position_before(self, query):
         # would need some traversal to get this right.
@@ -147,7 +148,7 @@ class IRBuilder:
             name = self.name_gen("ssa")
             result = ast.SsaId(value=name)
 
-        self._append_op_to_current_block(result, op)
+        self._append_op_to_current_block([result], op)
 
         return result
 
@@ -159,7 +160,7 @@ class IRBuilder:
             name = self.name_gen("ssa")
             result = ast.SsaId(value=name)
 
-        self._append_op_to_current_block(result, op)
+        self._append_op_to_current_block([result], op)
 
         return result
 
@@ -177,7 +178,7 @@ class IRBuilder:
             name = self.name_gen("ssa")
             result = ast.SsaId(value=name)
 
-        self._append_op_to_current_block(result, op)
+        self._append_op_to_current_block([result], op)
 
         return result
 
@@ -190,6 +191,41 @@ class IRBuilder:
             name = self.name_gen("ssa")
             result = ast.SsaId(value=name)
 
-        self._append_op_to_current_block(result, op)
+        self._append_op_to_current_block([result], op)
 
         return result
+
+    def float_constant(self, value: float, name: Optional[str], type: ast.FloatType):
+        # TODO: This should be defined by StdIRBuilder
+
+        op = std.ConstantOperation.from_fields(value=ast.FloatAttribute(value),
+                                               type=type)
+        if name is None:
+            name = self.name_gen("ssa")
+            result = ast.SsaId(value=name)
+
+        self._append_op_to_current_block([result], op)
+
+        return result
+
+    def affine_for(self, lower_bound: Union[int, ast.SsaId],
+                   upper_bound: Union[int, ast.SsaId],
+                   step: Optional[int] = None, indexname: Optional[str] = None):
+        parent_block = self.block
+        parent_position = self.position
+
+        if indexname is None:
+            indexname = self.name_gen("i")
+            index = ast.SsaId(value=indexname)
+
+        op = std.AffineForOp.from_fields(begin=lower_bound, end=upper_bound, step=step,
+                region=ast.Region.from_fields(body=[]), index=index)
+        self._append_op_to_current_block([], op)
+
+        yield op
+
+        self.block = parent_block
+        self.position = parent_position
+
+    def affine_load(self, memref: ast.SsaId, indices: Tuple[ast.AffineNode, ...], memref_type: ast.MemRefType):
+        ...

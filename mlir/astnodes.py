@@ -687,7 +687,7 @@ class Module(Node):
 
 class Function(Node):
     _fields_ = [
-        'name', 'args', 'result_types', 'attributes', 'body', 'location'
+        'name', 'args', 'result_types', 'attributes', 'region', 'location'
     ]
 
     def __init__(self, node: Token = None, **fields):
@@ -717,10 +717,10 @@ class Function(Node):
         else:
             self.attributes = None
         if len(node) > index and isinstance(node[index], Region):
-            self.body = node[index]
+            self.region = node[index]
             index += 1
         else:
-            self.body = []
+            self.region = None
         if len(node) > index:
             self.location = node[index]
         else:
@@ -742,7 +742,7 @@ class Function(Node):
         if self.attributes:
             result += ' attributes ' + dump_or_value(self.attributes, indent)
 
-        result += ' %s' % (self.body.dump(indent) if self.body else '{\n%s}' %
+        result += ' %s' % (self.region.dump(indent) if self.region else '{\n%s}' %
                            (indent * '  '))
         if self.location:
             result += ' ' + self.location.dump(indent)
@@ -841,6 +841,7 @@ class AffineExpr(Node):
         return dump_or_value(self.value, indent)
 
 
+
 class SemiAffineExpr(Node):
     _fields_ = ['value']
 
@@ -881,7 +882,25 @@ class MultiDimSemiAffineExpr(Node):
 
 
 # Contents of single/multi-dimensional (semi-)affine expressions
-class AffineUnaryOp(Node):
+class AffineNode(Node):
+    def __add__(self, other: Union[AffineNode, int]):
+        raise NotImplementedError()
+
+    def __mul__(self, other: Union[AffineNode, int]):
+        raise NotImplementedError()
+
+    def __floordiv__(self, other: int):
+        raise NotImplementedError()
+
+    def __mod__(self, other: int):
+        raise NotImplementedError()
+
+
+class AffineSsaId(SsaId, AffineNode):
+    pass
+
+
+class AffineUnaryOp(AffineNode):
     _fields_ = ['operand']
     _op_ = '<UNDEF %s>'
 
@@ -889,7 +908,7 @@ class AffineUnaryOp(Node):
         return self._op_ % dump_or_value(self.operand, indent)
 
 
-class AffineBinaryOp(Node):
+class AffineBinaryOp(AffineNode):
     _fields_ = ['operand_a', 'operand_b']
     _op_ = '<UNDEF>'
 
