@@ -220,7 +220,11 @@ class VectorType(Type):
             for t in self.dimensions) + 'x' + self.element_type.dump(indent))
 
 
-class RankedTensorType(Type):
+class TensorType(Type):
+    pass
+
+
+class RankedTensorType(TensorType):
     _fields_ = ['dimensions', 'element_type']
 
     def dump(self, indent: int = 0) -> str:
@@ -229,7 +233,7 @@ class RankedTensorType(Type):
             for t in self.dimensions) + 'x' + self.element_type.dump(indent))
 
 
-class UnrankedTensorType(Type):
+class UnrankedTensorType(TensorType):
     _fields_ = ['element_type']
 
     def __init__(self, node: Token = None, **fields):
@@ -240,7 +244,11 @@ class UnrankedTensorType(Type):
         return 'tensor<*x%s>' % self.element_type.dump(indent)
 
 
-class RankedMemRefType(Type):
+class MemRefType(Type):
+    pass
+
+
+class RankedMemRefType(MemRefType):
     _fields_ = ['dimensions', 'element_type', 'layout', 'space']
 
     def __init__(self, node: Token = None, **fields):
@@ -269,7 +277,7 @@ class RankedMemRefType(Type):
         return result + '>'
 
 
-class UnrankedMemRefType(Type):
+class UnrankedMemRefType(MemRefType):
     _fields_ = ['element_type', 'space']
 
     def __init__(self, node: Token = None, **fields):
