@@ -1,6 +1,7 @@
 import mlir.astnodess as ast
 import mlir.dialects.standard as std
-from typing import Optional, Tuple, Union
+import mlir.dialects.affine as affine
+from typing import Optional, Tuple, Union, List
 from pytools import UniqueNameGenerator
 
 
@@ -46,8 +47,6 @@ class IRBuilder:
         self.module = None
         self.function = None
         self.block = None
-        self.functions = {}
-
         self.position = None
 
         self.name_gen = UniqueNameGenerator(forced_prefix="_pymlir_")
@@ -64,24 +63,30 @@ class IRBuilder:
                    dtype: ast.Type,
                    shape: Optional[Tuple[Optional[int], ...]],
                    offset: Optional[int] = None,
-                   strides: Optional[Tuple[Optional[int], ...]] = None):
+                   strides: Optional[Tuple[Optional[int], ...]] = None) -> ast.MemRefType:
+        """
+        If *shape* is None, returns an instance of
+        :class:`mlir.astnodes.UnrankedMemRefType`. If *shape* is a
+        :class:`tuple`, returns a :class:`mlir.astnodes.RankedMemRefType`.
+        """
         if shape is None:
             assert strides is None
             return ast.UnrankedMemRefType.from_fields(dtype)
         else:
-            return ast.RankedMemRefType.from_fields(...)
+            if len(shape) != len(strides):
+                raise ValueError("shapes and strides must be of tuples of same dimensionality.")
+
+            if strides is None and :
+
+
+            return ast.RankedMemRefType.from_fields(dimensions=shape,
+                    element_type=dtype, memory_space=None, layout=Layout)
 
     def _append_op_to_current_block(self, op_results, op):
-        if self.current_function is None:
-            raise ValueError("Not within a function to add args to it.")
-
         if self.current_block is None:
-            self.current_block = ast.Block(label=None)
-            fnbody = self.current_function.body.body
-            fnbody.append(self.current_block)
+            raise ValueError("Not within any block to append")
 
-        body = self.current_block.body
-        body.append(ast.Operation.from_fields(result_list=op_results, op=op,
+        self.current_block.body.append(ast.Operation.from_fields(result_list=op_results, op=op,
                                               location=None))
 
     def make_module(self, name: str) -> ast.Module:
@@ -216,9 +221,9 @@ class IRBuilder:
 
         if indexname is None:
             indexname = self.name_gen("i")
-            index = ast.SsaId(value=indexname)
+            index = ast.AffineSsa(value=indexname, index=None)
 
-        op = std.AffineForOp.from_fields(begin=lower_bound, end=upper_bound, step=step,
+        op = affine.AffineForOp.from_fields(begin=lower_bound, end=upper_bound, step=step,
                 region=ast.Region.from_fields(body=[]), index=index)
         self._append_op_to_current_block([], op)
 
@@ -229,5 +234,15 @@ class IRBuilder:
         self.block = parent_block
         self.position = parent_position
 
-    def affine_load(self, memref: ast.SsaId, indices: Tuple[ast.AffineNode, ...], memref_type: ast.MemRefType):
-        ...
+    def affine_load(self, memref: ast.SsaId, indices: List[ast.AffineNode],
+            memref_type: ast.MemRefType, name=Optional[str]):
+        op = affine.AffineLoadOp(arg=memref, index=ast.MultiDimAffineExpression(indices), type=memref_type)
+
+        if name is None:
+            name = self.name_gen("ssa")
+
+        result = ast.SsaId(value=name)
+
+        self._append_op_to_current_block([result], op)
+
+        return result
