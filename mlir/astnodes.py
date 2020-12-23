@@ -1,8 +1,8 @@
 """ Classes containing MLIR AST node types, fields, and conversion back to
     MLIR. """
-
+from __future__ import annotations
 from enum import Enum, auto
-from typing import Any, List, Union
+from typing import Any, List, Union, Optional
 from lark import Token
 
 
@@ -883,21 +883,45 @@ class MultiDimSemiAffineExpr(Node):
 
 # Contents of single/multi-dimensional (semi-)affine expressions
 class AffineNode(Node):
+    # TODO: The operands in these expressions should be wrapped in
+    # "AffineParens" to enforce operator precedence whenever it might be
+    # violated. Since it is only supposed to cater MLIR AST having
+    # "Parentheses" node makes sense.
     def __add__(self, other: Union[AffineNode, int]):
-        raise NotImplementedError()
+        return AffineAdd(operand_a=self, operand_b=other)
 
-    def __mul__(self, other: Union[AffineNode, int]):
-        raise NotImplementedError()
+    def __sub__(self, other: Union[AffineNode, int]):
+        return AffineSub(operand_a=self, operand_b=other)
+
+    def __mul__(self, other: int):
+        return AffineMul(operand_a=self, operand_b=other)
 
     def __floordiv__(self, other: int):
-        raise NotImplementedError()
+        return AffineFloorDiv(operand_a=self, operand_b=other)
 
     def __mod__(self, other: int):
-        raise NotImplementedError()
+        return AffineMod(operand_a=self, operand_b=other)
+
+    def __neg__(self):
+        return AffineNeg(operand=self)
+
+    __radd__ = __add__
+    __rsub__ = __sub__
+    __rmul__ = __mul__
 
 
-class AffineSsaId(SsaId, AffineNode):
-    pass
+class AffineSsa(SsaId, AffineNode):
+    _fields_ = ['value', 'index']
+    def __init__(self, value: str, index: Optional[str]):
+        self.value = value
+        self.index = index
+
+
+class AffineDimOrSymbol(AffineNode):
+    _fields_ = ['value']
+
+    def dump(self, indent: int = 0) -> str:
+        return self.value
 
 
 class AffineUnaryOp(AffineNode):

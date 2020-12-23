@@ -217,8 +217,12 @@ class TreeToMlir(Transformer):
     integer_set = lambda self, value: value[0]
     affine_literal = lambda self, value: value[0]
     semi_affine_literal = lambda self, value: value[0]
-    affine_ssa = lambda self, value: value[0]
-    affine_symbol = lambda self, value: value[0]
     semi_affine_symbol = lambda self, value: value[0]
+
+    def affine_dim_or_symbol(self, value):
+        return astnodes.AffineDimOrSymbol(value=value[0])
+
+    def affine_ssa(self, value):
+        return astnodes.AffineSsa(value=value[0].value, index=value[0].index)
 
     # Dialect ops and types are appended to this list via "setattr"

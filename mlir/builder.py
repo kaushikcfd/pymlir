@@ -48,7 +48,7 @@ class IRBuilder:
         self.block = None
         self.functions = {}
 
-        self.position = 0
+        self.position = None
 
         self.name_gen = UniqueNameGenerator(forced_prefix="_pymlir_")
 
@@ -222,6 +222,8 @@ class IRBuilder:
                 region=ast.Region.from_fields(body=[]), index=index)
         self._append_op_to_current_block([], op)
 
+        self.block = None
+        self.position = None
         yield op
 
         self.block = parent_block
