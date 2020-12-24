@@ -202,8 +202,8 @@ class StridedLayout(Node):
 @dataclass
 class RankedMemRefType(MemRefType):
     dimensions: List[Dimension]
-    layout: Optional[StridedLayout]
     elementType: Union[IntegerType, FloatType, ComplexType, VectorType]
+    layout: Optional[StridedLayout] = None
     space: Optional[int] = None
 
     def dump(self, indent: int = 0) -> str:
@@ -399,6 +399,7 @@ class AttributeEntry(Node):
         return dump_or_value(self.name, indent)
 
 
+@dataclass
 class DialectAttributeEntry(Node):
     dialect: str
     name: str
@@ -413,6 +414,7 @@ class DialectAttributeEntry(Node):
                           dump_or_value(self.name, indent))
 
 
+@dataclass
 class AttributeDict(Node):
     values: List[AttributeEntry]
 
@@ -424,15 +426,17 @@ class AttributeDict(Node):
 ##############################################################################
 # Operations
 
+@dataclass
 class OpResult(Node):
     value: SsaId
-    count: int
+    count: Optional[int] = None
 
     def dump(self, indent: int = 0) -> str:
         return self.value.dump(indent) + (
             (':' + dump_or_value(self.count, indent)) if self.count else '')
 
 
+@dataclass
 class Operation(Node):
     result_list: List[OpResult]
     op: "Op"
@@ -453,6 +457,7 @@ class Op(Node):
     pass
 
 
+@dataclass
 class GenericOperation(Op):
     name: str
     args: List[SsaId]
@@ -473,6 +478,7 @@ class GenericOperation(Op):
         return result
 
 
+@dataclass
 class CustomOperation(Op):
     namespace: str
     name: str
@@ -494,12 +500,18 @@ class CustomOperation(Op):
 
 
 class Location(Node):
+    pass
+
+
+@dataclass
+class StrLocation(Node):
     value: str
 
     def dump(self, indent: int = 0) -> str:
         return 'loc(%s)' % dump_or_value(self.value, indent)
 
 
+@dataclass
 class FileLineColLoc(Location):
     file: str
     line: int
@@ -513,6 +525,7 @@ class FileLineColLoc(Location):
 # Modules, functions, and blocks
 
 
+@dataclass
 class Module(Node):
     name: str
     attributes: AttributeDict
@@ -534,6 +547,7 @@ class Module(Node):
         return result
 
 
+@dataclass
 class Function(Node):
     name: SymbolRefId
     args: List["NamedArgument"]
@@ -563,6 +577,7 @@ class Function(Node):
         return result
 
 
+@dataclass
 class Region(Node):
     body: List[Operation]
 
@@ -572,6 +587,7 @@ class Region(Node):
             for block in self.body) + '\n%s}' % (indent * '  '))
 
 
+@dataclass
 class Block(Node):
     label: "BlockLabel"
     body: List[Operation]
@@ -586,6 +602,7 @@ class Block(Node):
         return result
 
 
+@dataclass
 class BlockLabel(Node):
     name: BlockId
     arg_ids: List[SsaId]
@@ -601,6 +618,7 @@ class BlockLabel(Node):
         return result
 
 
+@dataclass
 class NamedArgument(Node):
     name: SsaId
     type: Type
@@ -626,6 +644,7 @@ class SemiAffineExpr(Node):
     pass
 
 
+@dataclass
 class MultiDimAffineExpr(Node):
     dims = List[AffineExpr]
 
@@ -637,6 +656,7 @@ class MultiDimAffineExpr(Node):
         return '(%s)' % dump_or_value(self.dims, indent)
 
 
+@dataclass
 class MultiDimSemiAffineExpr(Node):
     dims = List[SemiAffineExpr]
 
@@ -645,6 +665,7 @@ class MultiDimSemiAffineExpr(Node):
 
 
 # Contents of single/multi-dimensional (semi-)affine expressions
+@dataclass
 class AffineUnaryOp(Node):
     operand: AffineExpr
     _op_: str
@@ -653,6 +674,7 @@ class AffineUnaryOp(Node):
         return self._op_ % dump_or_value(self.operand, indent)
 
 
+@dataclass
 class AffineBinaryOp(Node):
     operand_a: Union[AffineExpr, int]
     operand_b: Union[AffineExpr, int]
@@ -673,9 +695,11 @@ class AffineFloorDiv(AffineBinaryOp): _op_ = 'floordiv'
 class AffineCeilDiv(AffineBinaryOp): _op_ = 'ceildiv'
 class AffineMod(AffineBinaryOp): _op_ = 'mod'
 
+
 ##############################################################################
 # (semi-)Affine maps, and integer sets
 
+@dataclass
 class DimAndSymbolList(Node):
     dims: List[str]
     symbols: List[str]
@@ -687,6 +711,7 @@ class DimAndSymbolList(Node):
         return '(%s)' % dump_or_value(self.dims, indent)
 
 
+@dataclass
 class AffineConstraint(Node):
     expr: AffineExpr
 
@@ -701,6 +726,7 @@ class AffineConstraintEqual(AffineConstraint):
         return '%s == 0' % dump_or_value(self.expr, indent)
 
 
+@dataclass
 class AffineMap(Node):
     dim_and_symbols: DimAndSymbolList
     map: MultiDimAffineExpr
@@ -710,6 +736,7 @@ class AffineMap(Node):
                              dump_or_value(self.map, indent))
 
 
+@dataclass
 class SemiAffineMap(Node):
     dim_and_symbols: DimAndSymbolList
     map: MultiDimSemiAffineExpr
@@ -719,6 +746,7 @@ class SemiAffineMap(Node):
                              dump_or_value(self.map, indent))
 
 
+@dataclass
 class IntSet(Node):
     dim_and_symbols: DimAndSymbolList
     constraints: List[AffineConstraint]
@@ -731,6 +759,7 @@ class IntSet(Node):
 ##############################################################################
 # Top-level definitions
 
+@dataclass
 class Definition(Node):
     name: Identifier
     value: Any

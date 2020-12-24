@@ -74,10 +74,10 @@ class TreeToMlir(Transformer):
     # MLIR Types
 
     none_type = astnodes.NoneType.from_lark
-    f16 = lambda self, _: "f16"
-    bf16 = lambda self, _: "bf16"
-    f32 = lambda self, _: "f32"
-    f64 = lambda self, _: "f64"
+    F16 = lambda self, tok: "f16"
+    BF16 = lambda self, tok: "bf16"
+    F32 = lambda self, tok: "f32"
+    F64 = lambda self, tok: "f64"
     float_type = astnodes.FloatType.from_lark
     index_type = astnodes.IndexType.from_lark
     integer_type = astnodes.IntegerType.from_lark
