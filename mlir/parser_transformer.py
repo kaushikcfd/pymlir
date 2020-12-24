@@ -16,7 +16,7 @@ class TreeToMlir(Transformer):
     true = lambda self, _: True
     false = lambda self, _: False
     id_chars = lambda self, val: str(val[0])
-    dimension = astnodes.Dimension
+    dimension = astnodes.Dimension.from_lark
 
     # Literals
     @v_args(inline=True)
@@ -32,7 +32,7 @@ class TreeToMlir(Transformer):
 
     @v_args(inline=True)
     def string_literal(self, s):
-        return astnodes.StringLiteral(s[1:-1].replace('\\"', '"'))
+        return astnodes.StringLiteral.from_lark(s[1:-1].replace('\\"', '"'))
 
     @v_args(inline=True)
     def bare_id(self, *elements):
@@ -45,122 +45,122 @@ class TreeToMlir(Transformer):
     ###############################################################
     # MLIR Identifiers
 
-    ssa_id = astnodes.SsaId
-    symbol_ref_id = astnodes.SymbolRefId
-    block_id = astnodes.BlockId
-    type_alias = astnodes.TypeAlias
-    attribute_alias = astnodes.AttrAlias
-    map_or_set_id = astnodes.MapOrSetId
+    ssa_id = astnodes.SsaId.from_lark
+    symbol_ref_id = astnodes.SymbolRefId.from_lark
+    block_id = astnodes.BlockId.from_lark
+    type_alias = astnodes.TypeAlias.from_lark
+    attribute_alias = astnodes.AttrAlias.from_lark
+    map_or_set_id = astnodes.MapOrSetId.from_lark
 
     ###############################################################
     # MLIR Types
 
-    none_type = astnodes.NoneType
+    none_type = astnodes.NoneType.from_lark
     f16 = lambda self, _: "f16"
     bf16 = lambda self, _: "bf16"
     f32 = lambda self, _: "f32"
     f64 = lambda self, _: "f64"
-    float_type = astnodes.FloatType
-    index_type = astnodes.IndexType
-    integer_type = astnodes.IntegerType
-    complex_type = astnodes.ComplexType
-    tuple_type = astnodes.TupleType
-    vector_type = astnodes.VectorType
-    ranked_tensor_type = astnodes.RankedTensorType
-    unranked_tensor_type = astnodes.UnrankedTensorType
-    ranked_memref_type = astnodes.RankedMemRefType
-    unranked_memref_type = astnodes.UnrankedMemRefType
-    opaque_dialect_item = astnodes.OpaqueDialectType
-    pretty_dialect_item = astnodes.PrettyDialectType
-    function_type = astnodes.FunctionType
-    strided_layout = astnodes.StridedLayout
+    float_type = astnodes.FloatType.from_lark
+    index_type = astnodes.IndexType.from_lark
+    integer_type = astnodes.IntegerType.from_lark
+    complex_type = astnodes.ComplexType.from_lark
+    tuple_type = astnodes.TupleType.from_lark
+    vector_type = astnodes.VectorType.from_lark
+    ranked_tensor_type = astnodes.RankedTensorType.from_lark
+    unranked_tensor_type = astnodes.UnrankedTensorType.from_lark
+    ranked_memref_type = astnodes.RankedMemRefType.from_lark
+    unranked_memref_type = astnodes.UnrankedMemRefType.from_lark
+    opaque_dialect_item = astnodes.OpaqueDialectType.from_lark
+    pretty_dialect_item = astnodes.PrettyDialectType.from_lark
+    function_type = astnodes.FunctionType.from_lark
+    strided_layout = astnodes.StridedLayout.from_lark
 
     ###############################################################
     # MLIR Attributes
 
-    array_attribute = astnodes.ArrayAttr
-    bool_attribute = astnodes.BoolAttr
-    dictionary_attribute = astnodes.DictionaryAttr
-    dense_elements_attribute = astnodes.DenseElementsAttr
-    opaque_elements_attribute = astnodes.OpaqueElementsAttr
-    sparse_elements_attribute = astnodes.SparseElementsAttr
-    float_attribute = astnodes.FloatAttr
-    integer_attribute = astnodes.IntegerAttr
-    integer_set_attribute = astnodes.IntSetAttr
-    string_attribute = astnodes.StringAttr
-    symbol_ref_attribute = astnodes.SymbolRefAttr
-    type_attribute = astnodes.TypeAttr
-    unit_attribute = astnodes.UnitAttr
+    array_attribute = astnodes.ArrayAttr.from_lark
+    bool_attribute = astnodes.BoolAttr.from_lark
+    dictionary_attribute = astnodes.DictionaryAttr.from_lark
+    dense_elements_attribute = astnodes.DenseElementsAttr.from_lark
+    opaque_elements_attribute = astnodes.OpaqueElementsAttr.from_lark
+    sparse_elements_attribute = astnodes.SparseElementsAttr.from_lark
+    float_attribute = astnodes.FloatAttr.from_lark
+    integer_attribute = astnodes.IntegerAttr.from_lark
+    integer_set_attribute = astnodes.IntSetAttr.from_lark
+    string_attribute = astnodes.StringAttr.from_lark
+    symbol_ref_attribute = astnodes.SymbolRefAttr.from_lark
+    type_attribute = astnodes.TypeAttr.from_lark
+    unit_attribute = astnodes.UnitAttr.from_lark
 
-    dependent_attribute_entry = astnodes.AttributeEntry
-    dialect_attribute_entry = astnodes.DialectAttributeEntry
-    attribute_dict = astnodes.AttributeDict
+    dependent_attribute_entry = astnodes.AttributeEntry.from_lark
+    dialect_attribute_entry = astnodes.DialectAttributeEntry.from_lark
+    attribute_dict = astnodes.AttributeDict.from_lark
 
     ###############################################################
     # Operations
 
-    op_result = astnodes.OpResult
-    location = astnodes.FileLineColLoc
+    op_result = astnodes.OpResult.from_lark
+    location = astnodes.FileLineColLoc.from_lark
 
-    operation = astnodes.Operation
-    generic_operation = astnodes.GenericOperation
-    custom_operation = astnodes.CustomOperation
+    operation = astnodes.Operation.from_lark
+    generic_operation = astnodes.GenericOperation.from_lark
+    custom_operation = astnodes.CustomOperation.from_lark
 
     ###############################################################
     # Blocks, regions, modules, functions
 
-    block_label = astnodes.BlockLabel
-    block = astnodes.Block
-    region = astnodes.Region
-    module = astnodes.Module
-    function = astnodes.Function
-    named_argument = astnodes.NamedArgument
+    block_label = astnodes.BlockLabel.from_lark
+    block = astnodes.Block.from_lark
+    region = astnodes.Region.from_lark
+    module = astnodes.Module.from_lark
+    function = astnodes.Function.from_lark
+    named_argument = astnodes.NamedArgument.from_lark
 
     ###############################################################
     # (semi-)Affine expressions, maps, and integer sets
 
-    dim_and_symbol_id_lists = astnodes.DimAndSymbolList
-    dim_and_symbol_use_list = astnodes.DimAndSymbolList
+    dim_and_symbol_id_lists = astnodes.DimAndSymbolList.from_lark
+    dim_and_symbol_use_list = astnodes.DimAndSymbolList.from_lark
 
-    affine_expr = astnodes.AffineExpr
-    semi_affine_expr = astnodes.SemiAffineExpr
-    multi_dim_affine_expr = astnodes.MultiDimAffineExpr
-    multi_dim_semi_affine_expr = astnodes.MultiDimSemiAffineExpr
+    affine_expr = astnodes.AffineExpr.from_lark
+    semi_affine_expr = astnodes.SemiAffineExpr.from_lark
+    multi_dim_affine_expr = astnodes.MultiDimAffineExpr.from_lark
+    multi_dim_semi_affine_expr = astnodes.MultiDimSemiAffineExpr.from_lark
 
-    affine_constraint_ge = astnodes.AffineConstraintGreaterEqual
-    affine_constraint_eq = astnodes.AffineConstraintEqual
+    affine_constraint_ge = astnodes.AffineConstraintGreaterEqual.from_lark
+    affine_constraint_eq = astnodes.AffineConstraintEqual.from_lark
 
-    affine_map_inline = astnodes.AffineMap
-    semi_affine_map_inline = astnodes.SemiAffineMap
-    integer_set_inline = astnodes.IntSet
+    affine_map_inline = astnodes.AffineMap.from_lark
+    semi_affine_map_inline = astnodes.SemiAffineMap.from_lark
+    integer_set_inline = astnodes.IntSet.from_lark
 
-    affine_neg = astnodes.AffineNeg
-    semi_affine_neg = astnodes.AffineNeg
-    affine_parens = astnodes.AffineParens
-    semi_affine_parens = astnodes.AffineParens
-    affine_symbol_explicit = astnodes.AffineExplicitSymbol
-    semi_affine_symbol_explicit = astnodes.AffineExplicitSymbol
-    affine_add = astnodes.AffineAdd
-    semi_affine_add = astnodes.AffineAdd
-    affine_sub = astnodes.AffineSub
-    semi_affine_sub = astnodes.AffineSub
-    affine_mul = astnodes.AffineMul
-    semi_affine_mul = astnodes.AffineMul
-    affine_floordiv = astnodes.AffineFloorDiv
-    semi_affine_floordiv = astnodes.AffineFloorDiv
-    affine_ceildiv = astnodes.AffineCeilDiv
-    semi_affine_ceildiv = astnodes.AffineCeilDiv
-    affine_mod = astnodes.AffineMod
-    semi_affine_mod = astnodes.AffineMod
+    affine_neg = astnodes.AffineNeg.from_lark
+    semi_affine_neg = astnodes.AffineNeg.from_lark
+    affine_parens = astnodes.AffineParens.from_lark
+    semi_affine_parens = astnodes.AffineParens.from_lark
+    affine_symbol_explicit = astnodes.AffineExplicitSymbol.from_lark
+    semi_affine_symbol_explicit = astnodes.AffineExplicitSymbol.from_lark
+    affine_add = astnodes.AffineAdd.from_lark
+    semi_affine_add = astnodes.AffineAdd.from_lark
+    affine_sub = astnodes.AffineSub.from_lark
+    semi_affine_sub = astnodes.AffineSub.from_lark
+    affine_mul = astnodes.AffineMul.from_lark
+    semi_affine_mul = astnodes.AffineMul.from_lark
+    affine_floordiv = astnodes.AffineFloorDiv.from_lark
+    semi_affine_floordiv = astnodes.AffineFloorDiv.from_lark
+    affine_ceildiv = astnodes.AffineCeilDiv.from_lark
+    semi_affine_ceildiv = astnodes.AffineCeilDiv.from_lark
+    affine_mod = astnodes.AffineMod.from_lark
+    semi_affine_mod = astnodes.AffineMod.from_lark
 
     ###############################################################
     # Top-level definitions
 
-    type_alias_def = astnodes.TypeAliasDef
-    affine_map_def = astnodes.AffineMapDef
-    semi_affine_map_def = astnodes.SemiAffineMapDef
-    integer_set_def = astnodes.IntSetDef
-    attribute_alias_def = astnodes.AttrAliasDef
+    type_alias_def = astnodes.TypeAliasDef.from_lark
+    affine_map_def = astnodes.AffineMapDef.from_lark
+    semi_affine_map_def = astnodes.SemiAffineMapDef.from_lark
+    integer_set_def = astnodes.IntSetDef.from_lark
+    attribute_alias_def = astnodes.AttrAliasDef.from_lark
 
     ###############################################################
     # List types

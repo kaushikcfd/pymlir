@@ -13,8 +13,6 @@ class Node(object):
     @classmethod
     def from_lark(cls, node: Optional[List[Any]] = None):
         if node is not None:
-            if not isinstance(node, list):
-                import pudb; pu.db
             return cls(*node)
         else:
             return cls()
@@ -375,13 +373,9 @@ class AttributeEntry(Node):
 
 
 class DialectAttributeEntry(Node):
-    _fields_ = ['dialect', 'name', 'value']
-
-    def __init__(self, node: Token = None, **fields):
-        self.dialect = node[0]
-        self.name = node[1]
-        self.value = node[2] if len(node) > 2 else None
-        super().__init__(None, **fields)
+    dialect: str
+    name: str
+    value: Optional[Attribute]
 
     def dump(self, indent: int = 0) -> str:
         if self.value:
@@ -393,33 +387,19 @@ class DialectAttributeEntry(Node):
 
 
 class AttributeDict(Node):
-    _fields_ = ['values']
-
-    def __init__(self, node: Token = None, **fields):
-        self.values = node
-        super().__init__(None, **fields)
+    values: List[AttributeEntry]
 
     def dump(self, indent: int = 0) -> str:
         return '{%s}' % ', '.join(
             dump_or_value(v, indent) for v in self.values)
 
 
-
-
 ##############################################################################
 # Operations
 
-
 class OpResult(Node):
-    _fields_ = ['value', 'count']
-
-    def __init__(self, node: Token = None, **fields):
-        self.value = node[0]
-        if len(node) > 1:
-            self.count = node[1]
-        else:
-            self.count = None
-        super().__init__(None, **fields)
+    value: SsaId
+    count: int
 
     def dump(self, indent: int = 0) -> str:
         return self.value.dump(indent) + (
@@ -427,23 +407,9 @@ class OpResult(Node):
 
 
 class Operation(Node):
-    _fields_ = ['result_list', 'op', 'location']
-
-    def __init__(self, node: Token = None, **fields):
-        index = 0
-        if isinstance(node[0], list):
-            self.result_list = node[index]
-            index += 1
-        else:
-            self.result_list = []
-        self.op = node[index]
-        index += 1
-        if len(node) > index:
-            self.location = node[index]
-        else:
-            self.location = None
-
-        super().__init__(None, **fields)
+    result_list: List[OpResult]
+    op: "Op"
+    location = Optional["Location"]
 
     def dump(self, indent: int = 0) -> str:
         result = indent * '  '
@@ -461,28 +427,10 @@ class Op(Node):
 
 
 class GenericOperation(Op):
-    _fields_ = ['name', 'args', 'attributes', 'type']
-
-    def __init__(self, node: Token = None, **fields):
-        index = 0
-        self.name = node[index]
-        index += 1
-        if len(node) > index and isinstance(node[index], list):
-            self.args = node[index]
-            index += 1
-        else:
-            self.args = []
-        if len(node) > index and isinstance(node[index], AttributeDict):
-            self.attributes = node[index]
-            index += 1
-        else:
-            self.attributes = None
-        if len(node) > index:
-            self.type = node[index]
-        else:
-            self.type = None
-
-        super().__init__(None, **fields)
+    name: str
+    args: List[SsaId]
+    attributes: AttributeDict
+    type: List[Type]
 
     def dump(self, indent: int = 0) -> str:
         result = '%s' % self.name
@@ -499,19 +447,10 @@ class GenericOperation(Op):
 
 
 class CustomOperation(Op):
-    _fields_ = ['namespace', 'name', 'args', 'type']
-
-    def __init__(self, node: Token = None, **fields):
-        self.namespace = node[0]
-        self.name = node[1]
-        if len(node) == 4:
-            self.args = node[2]
-            self.type = node[3]
-        else:
-            self.args = None
-            self.type = node[2]
-
-        super().__init__(None, **fields)
+    namespace: str
+    name: str
+    args: List[SsaId]
+    type: List[Type]
 
     def dump(self, indent: int = 0) -> str:
         result = '%s.%s' % (self.namespace, self.name)
@@ -528,14 +467,16 @@ class CustomOperation(Op):
 
 
 class Location(Node):
-    _fields_ = ['value']
+    value: str
 
     def dump(self, indent: int = 0) -> str:
         return 'loc(%s)' % dump_or_value(self.value, indent)
 
 
 class FileLineColLoc(Location):
-    _fields_ = ['file', 'line', 'col']
+    file: str
+    line: int
+    col: int
 
     def dump(self, indent: int = 0) -> str:
         return 'loc(%s:%d:%d)' % (self.file, self.line, self.col)
@@ -546,34 +487,10 @@ class FileLineColLoc(Location):
 
 
 class Module(Node):
-    _fields_ = ['name', 'attributes', 'body', 'location']
-
-    def __init__(self, node: Union[Token, Node] = None, **fields):
-        index = 0
-        if isinstance(node, Node):
-            self.name = None
-            self.attributes = None
-            self.body = [node]
-            self.location = None
-        else:
-            if len(node) > index and isinstance(node[index], SymbolRefId):
-                self.name = node[index]
-                index += 1
-            else:
-                self.name = None
-            if len(node) > index and isinstance(node[index], AttributeDict):
-                self.attributes = node[index]
-                index += 1
-            else:
-                self.attributes = None
-            self.body = node[index].children
-            index += 1
-            if len(node) > index:
-                self.location = node[index]
-            else:
-                self.location = None
-
-        super().__init__(None, **fields)
+    name: str
+    attributes: AttributeDict
+    body: "Region"
+    location: Location
 
     def dump(self, indent=0) -> str:
         result = indent * '  ' + 'module'
@@ -591,47 +508,12 @@ class Module(Node):
 
 
 class Function(Node):
-    _fields_ = [
-        'name', 'args', 'result_types', 'attributes', 'body', 'location'
-    ]
-
-    def __init__(self, node: Token = None, **fields):
-        signature = node[0].children
-        # Parse signature
-        index = 0
-        self.name = signature[index]
-        index += 1
-        if len(signature) > index and signature[index].data == 'argument_list':
-            self.args = signature[index].children
-            index += 1
-        else:
-            self.args = []
-        if (len(signature) > index
-                and signature[index].data == 'function_result_list'):
-            # first child contains all the result types
-            self.result_types = signature[index].children[0]
-            index += 1
-        else:
-            self.result_types = []
-
-        # Parse rest of function
-        index = 1
-        if len(node) > index and isinstance(node[index], AttributeDict):
-            self.attributes = node[index]
-            index += 1
-        else:
-            self.attributes = None
-        if len(node) > index and isinstance(node[index], Region):
-            self.body = node[index]
-            index += 1
-        else:
-            self.body = []
-        if len(node) > index:
-            self.location = node[index]
-        else:
-            self.location = None
-
-        super().__init__(None, **fields)
+    name: SymbolRefId
+    args: List["NamedArgument"]
+    result_types: List[Type]
+    body: "Region"
+    location: Optional[Location]
+    attributes: Optional[Union[Attribute, AttrAlias]]
 
     def dump(self, indent=0) -> str:
         result = indent * '  ' + 'func'
@@ -655,11 +537,7 @@ class Function(Node):
 
 
 class Region(Node):
-    _fields_ = ['body']
-
-    def __init__(self, node: Token = None, **fields):
-        self.body = node
-        super().__init__(None, **fields)
+    body: List[Operation]
 
     def dump(self, indent=0) -> str:
         return ('{\n' + '\n'.join(
@@ -668,21 +546,8 @@ class Region(Node):
 
 
 class Block(Node):
-    _fields_ = ['label', 'body']
-
-    def __init__(self, node: Token = None, **fields):
-        index = 0
-        if len(node) > index and isinstance(node[index], BlockLabel):
-            self.label = node[index]
-            index += 1
-        else:
-            self.label = None
-        if len(node) > index:
-            self.body = node[index:]
-        else:
-            self.body = []
-
-        super().__init__(None, **fields)
+    label: "BlockLabel"
+    body: List[Operation]
 
     def dump(self, indent=0) -> str:
         result = ''
@@ -695,18 +560,9 @@ class Block(Node):
 
 
 class BlockLabel(Node):
-    _fields_ = ['name', 'arg_ids', 'arg_types']
-
-    def __init__(self, node: Token = None, **fields):
-        self.name = node[0]
-        if len(node) > 1:
-            arg_id_and_types = [arg.children for arg in node[1][0]]
-            self.arg_ids, self.arg_types = zip(*arg_id_and_types)
-        else:
-            self.arg_ids = []
-            self.arg_types = []
-
-        super().__init__(None, **fields)
+    name: BlockId
+    arg_ids: List[SsaId]
+    arg_types: List[Type]
 
     def dump(self, indent: int = 0) -> str:
         result = dump_or_value(self.name, indent)
@@ -719,13 +575,9 @@ class BlockLabel(Node):
 
 
 class NamedArgument(Node):
-    _fields_ = ['name', 'type', 'attributes']
-
-    def __init__(self, node: Token = None, **fields):
-        self.name = node[0]
-        self.type = node[1]
-        self.attributes = node[2] if len(node) > 2 else None
-        super().__init__(None, **fields)
+    name: SsaId
+    type: Type
+    attributes: Optional[Union[AttributeDict, AttrAlias]] = None
 
     def dump(self, indent: int = 0) -> str:
         result = '%s: %s' % (dump_or_value(self.name, indent),
@@ -740,28 +592,15 @@ class NamedArgument(Node):
 
 # Types of affine expressions
 class AffineExpr(Node):
-    _fields_ = ['value']
-
-    def dump(self, indent: int = 0) -> str:
-        return dump_or_value(self.value, indent)
+    pass
 
 
 class SemiAffineExpr(Node):
-    _fields_ = ['value']
-
-    def dump(self, indent: int = 0) -> str:
-        return dump_or_value(self.value, indent)
+    pass
 
 
 class MultiDimAffineExpr(Node):
-    _fields_ = ['dims']
-
-    def __init__(self, node: Token = None, **fields):
-        if len(node) == 1 and isinstance(node[0], list):
-            self.dims = node[0]
-        else:
-            self.dims = node
-        super().__init__(None, **fields)
+    dims = List[AffineExpr]
 
     def dump(self, indent: int = 0) -> str:
         return '%s : (%s)' % (dump_or_value(self.dims_and_symbols, indent),
@@ -772,14 +611,7 @@ class MultiDimAffineExpr(Node):
 
 
 class MultiDimSemiAffineExpr(Node):
-    _fields_ = ['dims']
-
-    def __init__(self, node: Token = None, **fields):
-        if len(node) == 1 and isinstance(node[0], list):
-            self.dims = node[0]
-        else:
-            self.dims = node
-        super().__init__(None, **fields)
+    dims = List[SemiAffineExpr]
 
     def dump(self, indent: int = 0) -> str:
         return '(%s)' % dump_or_value(self.dims, indent)
@@ -787,16 +619,17 @@ class MultiDimSemiAffineExpr(Node):
 
 # Contents of single/multi-dimensional (semi-)affine expressions
 class AffineUnaryOp(Node):
-    _fields_ = ['operand']
-    _op_ = '<UNDEF %s>'
+    operand: AffineExpr
+    _op_: str
 
     def dump(self, indent: int = 0) -> str:
         return self._op_ % dump_or_value(self.operand, indent)
 
 
 class AffineBinaryOp(Node):
-    _fields_ = ['operand_a', 'operand_b']
-    _op_ = '<UNDEF>'
+    operand_a: Union[AffineExpr, int]
+    operand_b: Union[AffineExpr, int]
+    _op_: str
 
     def dump(self, indent: int = 0) -> str:
         return '%s %s %s' % (dump_or_value(self.operand_a, indent), self._op_,
@@ -817,22 +650,8 @@ class AffineMod(AffineBinaryOp): _op_ = 'mod'
 # (semi-)Affine maps, and integer sets
 
 class DimAndSymbolList(Node):
-    _fields_ = ['dims', 'symbols']
-
-    def __init__(self, node: Token = None, **fields):
-        index = 0
-        if len(node) > index:
-            self.dims = node[index]
-            index += 1
-        else:
-            self.dims = []
-        if len(node) > index:
-            self.symbols = node[index]
-            index += 1
-        else:
-            self.symbols = []
-
-        super().__init__(None, **fields)
+    dims: List[str]
+    symbols: List[str]
 
     def dump(self, indent: int = 0) -> str:
         if len(self.symbols) > 0:
@@ -842,7 +661,7 @@ class DimAndSymbolList(Node):
 
 
 class AffineConstraint(Node):
-    _fields_ = ['expr']
+    expr: AffineExpr
 
 
 class AffineConstraintGreaterEqual(AffineConstraint):
@@ -856,7 +675,8 @@ class AffineConstraintEqual(AffineConstraint):
 
 
 class AffineMap(Node):
-    _fields_ = ['dims_and_symbols', 'map']
+    dim_and_symbols: DimAndSymbolList
+    map: MultiDimAffineExpr
 
     def dump(self, indent: int = 0) -> str:
         return 'affine_map<%s -> %s>' % (dump_or_value(self.dims_and_symbols, indent),
@@ -864,7 +684,8 @@ class AffineMap(Node):
 
 
 class SemiAffineMap(Node):
-    _fields_ = ['dims_and_symbols', 'map']
+    dim_and_symbols: DimAndSymbolList
+    map: MultiDimSemiAffineExpr
 
     def dump(self, indent: int = 0) -> str:
         return '%s -> %s' % (dump_or_value(self.dims_and_symbols, indent),
@@ -872,22 +693,8 @@ class SemiAffineMap(Node):
 
 
 class IntSet(Node):
-    _fields_ = ['dims_and_symbols', 'constraints']
-
-    def __init__(self, node: Token = None, **fields):
-        index = 0
-        if len(node) > index:
-            self.dims_and_symbols = node[index]
-            index += 1
-        else:
-            self.dims_and_symbols = []
-        if len(node) > index:
-            self.constraints = node[index]
-            index += 1
-        else:
-            self.constraints = []
-
-        super().__init__(None, **fields)
+    dim_and_symbols: DimAndSymbolList
+    constraints: List[AffineConstraint]
 
     def dump(self, indent: int = 0) -> str:
         return '%s : (%s)' % (dump_or_value(self.dims_and_symbols, indent),
@@ -898,7 +705,8 @@ class IntSet(Node):
 # Top-level definitions
 
 class Definition(Node):
-    _fields_ = ['name', 'value']
+    name: Identifier
+    value: Any
 
     def dump(self, indent: int = 0) -> str:
         return (indent * '  ' + dump_or_value(self.name, indent) + ' = ' +
