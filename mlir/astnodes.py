@@ -7,15 +7,13 @@ from lark import Token
 from dataclasses import dataclass
 
 
-@dataclass(init=True, repr=True)
 class Node(object):
     """ Base MLIR AST node object. """
     @classmethod
-    def from_lark(cls, node: Optional[List[Any]] = None):
-        if node is not None:
-            return cls(*node)
-        else:
-            return cls()
+    def from_lark(cls, args: List[Any]):
+        assert isinstance(args, list)
+        assert not any(isinstance(el, Token) for el in args)
+        return cls(*args)
 
     def dump_ast(self) -> str:
         from warnings import warn
@@ -46,21 +44,18 @@ class StringLiteral(Node):
 ##############################################################################
 # Identifiers
 
-
+@dataclass
 class Identifier(Node):
     value: str
-
-    # Static field representing the prefix of this identifier. Used for ease
-    # of MLIR output
-    _prefix_: str = ''
 
     def dump(self, indent: int = 0) -> str:
         return self._prefix_ + self.value
 
 
+@dataclass
 class SsaId(Identifier):
     value: str
-    op_no: int
+    op_no: Optional[int] = None
     _prefix_ = '%'
 
     def dump(self, indent: int = 0) -> str:
@@ -97,6 +92,7 @@ class Type(Node):
     pass
 
 
+@dataclass
 class Dimension(Type):
     value: Optional[int] = None
 
@@ -104,11 +100,13 @@ class Dimension(Type):
         return "?" if self.value is None else str(self.value)
 
 
+@dataclass
 class NoneType(Type):
     def dump(self, indent: int = 0) -> str:
         return 'none'
 
 
+@dataclass
 class FloatTypeEnum(Enum):
     f16 = auto()
     bf16 = auto()
@@ -116,6 +114,7 @@ class FloatTypeEnum(Enum):
     f64 = auto()
 
 
+@dataclass
 class FloatType(Type):
     dtype: FloatTypeEnum
 
@@ -123,11 +122,13 @@ class FloatType(Type):
         return self.type.name
 
 
+@dataclass
 class IndexType(Type):
     def dump(self, indent: int = 0) -> str:
         return 'index'
 
 
+@dataclass
 class IntegerType(Type):
     width: int
 
@@ -135,6 +136,7 @@ class IntegerType(Type):
         return 'i' + str(self.width)
 
 
+@dataclass
 class ComplexType(Type):
     type: Type
 
@@ -142,6 +144,7 @@ class ComplexType(Type):
         return 'complex<%s>' % self.type.dump(indent)
 
 
+@dataclass
 class TupleType(Type):
     types: List[Type]
 
@@ -149,6 +152,7 @@ class TupleType(Type):
         return 'tuple<%s>' % dump_or_value(self.types, indent)
 
 
+@dataclass
 class VectorType(Type):
     dimensions: int
     element_type: Union[IntegerType, FloatType]
@@ -159,10 +163,12 @@ class VectorType(Type):
             for t in self.dimensions) + 'x' + self.element_type.dump(indent))
 
 
+@dataclass
 class TensorType(Type):
     elementType: Union[IntegerType, FloatType, ComplexType, VectorType]
 
 
+@dataclass
 class RankedTensorType(TensorType):
     dimensions: List[Dimension]
 
@@ -172,16 +178,18 @@ class RankedTensorType(TensorType):
             for t in self.dimensions) + 'x' + self.element_type.dump(indent))
 
 
+@dataclass
 class UnrankedTensorType(TensorType):
     def dump(self, indent: int = 0) -> str:
         return 'tensor<*x%s>' % self.element_type.dump(indent)
 
 
+@dataclass
 class MemRefType(Type):
-    elementType: Union[IntegerType, FloatType, ComplexType, VectorType]
-    space: Optional[int] = None
+    pass
 
 
+@dataclass
 class StridedLayout(Node):
     offset: int = 0
     strides: Optional[List[int]] = None
@@ -191,9 +199,12 @@ class StridedLayout(Node):
             self.offset, indent), dump_or_value(self.strides, indent))
 
 
+@dataclass
 class RankedMemRefType(MemRefType):
     dimensions: List[Dimension]
     layout: Optional[StridedLayout]
+    elementType: Union[IntegerType, FloatType, ComplexType, VectorType]
+    space: Optional[int] = None
 
     def dump(self, indent: int = 0) -> str:
         result = 'memref<%s' % ('x'.join(t.dump(indent)
@@ -208,7 +219,11 @@ class RankedMemRefType(MemRefType):
         return result + '>'
 
 
+@dataclass
 class UnrankedMemRefType(MemRefType):
+    elementType: Union[IntegerType, FloatType, ComplexType, VectorType]
+    space: Optional[int] = None
+
     def dump(self, indent: int = 0) -> str:
         result = 'memref<%s' % ('*x' + self.element_type.dump(indent))
         if self.space is not None:
@@ -217,6 +232,7 @@ class UnrankedMemRefType(MemRefType):
         return result + '>'
 
 
+@dataclass
 class OpaqueDialectType(Type):
     dialect: str
     contents: str
@@ -224,7 +240,7 @@ class OpaqueDialectType(Type):
     def dump(self, indent: int = 0) -> str:
         return '!%s<"%s">' % (self.dialect, self.contents)
 
-
+@dataclass
 class PrettyDialectType(Type):
     dialect: str
     type: str
@@ -235,6 +251,7 @@ class PrettyDialectType(Type):
             dump_or_value(item, indent) for item in self.body))
 
 
+@dataclass
 class FunctionType(Type):
     argument_types: List[Type]
     result_types: List[Type]
@@ -260,9 +277,9 @@ class FunctionType(Type):
 # Default attribute implementation
 class Attribute(Node):
     pass
-    ...
 
 
+@dataclass
 class ArrayAttr(Attribute):
     value: List[Attribute]
 
@@ -270,6 +287,7 @@ class ArrayAttr(Attribute):
         return '[%s]' % dump_or_value(self.value, indent)
 
 
+@dataclass
 class BoolAttr(Attribute):
     value: bool
 
@@ -277,6 +295,7 @@ class BoolAttr(Attribute):
         return dump_or_value(self.value, indent)
 
 
+@dataclass
 class DictionaryAttr(Attribute):
     entries = List["AttributeEntry"]
 
@@ -284,10 +303,12 @@ class DictionaryAttr(Attribute):
         return '{%s}' % dump_or_value(self.value, indent)
 
 
+@dataclass
 class ElementsAttr(Attribute):
     pass
 
 
+@dataclass
 class DenseElementsAttr(ElementsAttr):
     attribute: Attribute
     type: Union[TensorType, VectorType]
@@ -297,6 +318,7 @@ class DenseElementsAttr(ElementsAttr):
                                    self.type.dump(indent))
 
 
+@dataclass
 class OpaqueElementsAttr(ElementsAttr):
     dialect: str
     attribute: Attribute
@@ -308,6 +330,7 @@ class OpaqueElementsAttr(ElementsAttr):
                                         self.type.dump(indent))
 
 
+@dataclass
 class SparseElementsAttr(ElementsAttr):
     indices: List[List[int]]
     values: List[Any]
@@ -319,6 +342,7 @@ class SparseElementsAttr(ElementsAttr):
                                         self.type.dump(indent))
 
 
+@dataclass
 class PrimitiveAttribute(Attribute):
     value: Any
     type: Type
@@ -348,6 +372,7 @@ class TypeAttr(Attribute):
     pass
 
 
+@dataclass
 class SymbolRefAttr(Attribute):
     path: List[SymbolRefId]
 
@@ -355,12 +380,14 @@ class SymbolRefAttr(Attribute):
         return '::'.join(dump_or_value(p, indent) for p in self.path)
 
 
+@dataclass
 class UnitAttr(Attribute):
     def dump(self, indent: int = 0) -> str:
         return 'unit'
 
 
 # Attribute entries
+@dataclass
 class AttributeEntry(Node):
     name: str
     value: Optional[Attribute]
