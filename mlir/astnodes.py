@@ -110,15 +110,15 @@ class NoneType(Type):
 
 @dataclass
 class FloatTypeEnum(Enum):
-    f16 = auto()
-    bf16 = auto()
-    f32 = auto()
-    f64 = auto()
+    f16 = "f16"
+    bf16 = "bf16"
+    f32 = "f32"
+    f64 = "f64"
 
 
 @dataclass
 class FloatType(Type):
-    dtype: FloatTypeEnum
+    type: FloatTypeEnum
 
     def dump(self, indent: int = 0) -> str:
         return self.type.name
@@ -167,7 +167,7 @@ class VectorType(Type):
 
 @dataclass
 class TensorType(Type):
-    elementType: Union[IntegerType, FloatType, ComplexType, VectorType]
+    element_type: Union[IntegerType, FloatType, ComplexType, VectorType]
 
 
 @dataclass
@@ -180,7 +180,6 @@ class RankedTensorType(TensorType):
             for t in self.dimensions) + 'x' + self.element_type.dump(indent))
 
 
-@dataclass
 class UnrankedTensorType(TensorType):
     def dump(self, indent: int = 0) -> str:
         return 'tensor<*x%s>' % self.element_type.dump(indent)
@@ -204,7 +203,7 @@ class StridedLayout(Node):
 @dataclass
 class RankedMemRefType(MemRefType):
     dimensions: List[Dimension]
-    elementType: Union[IntegerType, FloatType, ComplexType, VectorType]
+    element_type: Union[IntegerType, FloatType, ComplexType, VectorType]
     layout: Optional[StridedLayout] = None
     space: Optional[int] = None
 
@@ -223,7 +222,7 @@ class RankedMemRefType(MemRefType):
 
 @dataclass
 class UnrankedMemRefType(MemRefType):
-    elementType: Union[IntegerType, FloatType, ComplexType, VectorType]
+    element_type: Union[IntegerType, FloatType, ComplexType, VectorType]
     space: Optional[int] = None
 
     def dump(self, indent: int = 0) -> str:
@@ -440,8 +439,8 @@ class OpResult(Node):
 
 @dataclass
 class Operation(Node):
+    result_list: List[OpResult]
     op: "Op"
-    result_list: Optional[List[OpResult]] = None
     location: Optional["Location"] = None
 
     def dump(self, indent: int = 0) -> str:
@@ -527,14 +526,12 @@ class FileLineColLoc(Location):
 # Modules, functions, and blocks
 
 
-
-
 @dataclass
 class Module(Node):
-    name: str
-    attributes: AttributeDict
+    name: Optional[str]
+    attributes: Optional[AttributeDict]
     body: "Region"
-    location: Location
+    location: Optional[Location] = None
 
     def dump(self, indent=0) -> str:
         result = indent * '  ' + 'module'
@@ -543,9 +540,7 @@ class Module(Node):
         if self.attributes:
             result += ' attributes ' + dump_or_value(self.attributes, indent)
 
-        result += ' {\n'
-        result += '\n'.join(block.dump(indent + 1) for block in self.body)
-        result += '\n' + indent * '  ' + '}'
+        result += dump_or_value(self.body)
         if self.location:
             result += ' ' + self.location.dump(indent)
         return result
@@ -639,8 +634,8 @@ class NamedArgument(Node):
 # TODO: please come up with a better name
 @dataclass
 class MLIRFile(Node):
+    definitions: List["Definition"]
     module: Module
-    definitions: Optional[List["Definitions"]] = None
 
     def dump(self, indent: int = 0) -> str:
         result = ''

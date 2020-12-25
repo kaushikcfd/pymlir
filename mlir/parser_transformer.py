@@ -74,10 +74,10 @@ class TreeToMlir(Transformer):
     # MLIR Types
 
     none_type = astnodes.NoneType.from_lark
-    F16 = lambda self, tok: "f16"
-    BF16 = lambda self, tok: "bf16"
-    F32 = lambda self, tok: "f32"
-    F64 = lambda self, tok: "f64"
+    F16 = lambda self, tok: astnodes.FloatTypeEnum("f16")
+    BF16 = lambda self, tok: astnodes.FloatTypeEnum("bf16")
+    F32 = lambda self, tok: astnodes.FloatTypeEnum("f32")
+    F64 = lambda self, tok: astnodes.FloatTypeEnum("f64")
     float_type = astnodes.FloatType.from_lark
     index_type = astnodes.IndexType.from_lark
     integer_type = astnodes.IntegerType.from_lark
@@ -120,7 +120,10 @@ class TreeToMlir(Transformer):
     op_result = astnodes.OpResult.from_lark
     location = astnodes.FileLineColLoc.from_lark
 
-    operation = astnodes.Operation.from_lark
+    def operation(self, value):
+        import pudb; pu.db
+
+    # operation = astnodes.Operation.from_lark
     generic_operation = astnodes.GenericOperation.from_lark
     custom_operation = astnodes.CustomOperation.from_lark
 
@@ -129,7 +132,7 @@ class TreeToMlir(Transformer):
 
     block_label = astnodes.BlockLabel.from_lark
     block = astnodes.Block.from_lark
-    region = astnodes.Region.from_lark
+    region = astnodes.Region
     module = astnodes.Module.from_lark
     function = astnodes.Function.from_lark
     named_argument = astnodes.NamedArgument.from_lark
@@ -205,6 +208,9 @@ class TreeToMlir(Transformer):
     symbol_use_list = list
     operation_list = list
     argument_list = list
+    definition_list = list
+    function_list = list
+    definition_and_function_list = tuple
 
     ###############################################################
     # Composite types that should be reduced to sub-types
@@ -240,5 +246,17 @@ class TreeToMlir(Transformer):
     affine_ssa = lambda self, value: value[0]
     affine_symbol = lambda self, value: value[0]
     semi_affine_symbol = lambda self, value: value[0]
+
+    ###############################################################
+    # MLIR file
+
+    def only_functions_and_definitions_file(self, defns_and_fns):
+        assert isinstance(defns_and_fns, list)
+        assert all(isinstance(el, tuple) for el in defns_and_fns)
+        defns = sum([defns for defns, fns in defns_and_fns], start=[])
+        fns = sum([fns for defns, fns in defns_and_fns], start=[])
+        return astnodes.MLIRFile(defns, astnodes.Module(None, None, astnodes.Region(fns)))
+
+    definitions_and_module_file = astnodes.MLIRFile.from_lark
 
     # Dialect ops and types are appended to this list via "setattr"
