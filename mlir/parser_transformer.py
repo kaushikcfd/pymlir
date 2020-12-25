@@ -188,7 +188,7 @@ class TreeToMlir(Transformer):
     op_result_list = list
     successor_list = list
     function_body = list
-    ssa_id_and_type_list = list
+    ssa_id_and_type_list = tuple
     block_arg_list = list
     ssa_use_and_type_list = list
     stride_list = list
@@ -203,6 +203,8 @@ class TreeToMlir(Transformer):
     symbol_id_list = list
     dim_use_list = list
     symbol_use_list = list
+    operation_list = list
+    argument_list = list
 
     ###############################################################
     # Composite types that should be reduced to sub-types

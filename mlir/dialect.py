@@ -5,6 +5,7 @@ from lark import Token
 from mlir import astnodes
 import parse
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from dataclasses import dataclass, field
 
 
 def _get_fields(syntax: str):
@@ -191,14 +192,15 @@ def add_dialect_rules(dialect: Dialect, elements: List[Type[DialectElement]],
                               '%s' % elem.__name__)
 
         # Fill contents with procedurally-generated rules
-        for i, rule in enumerate(elem._lark_):
+        for i, (rule, sfields) in enumerate(zip(elem._lark_, elem._syntax_fields_)):
             rule_name = '%s_%s_%s_%d' % (dialect.name, typename,
                                          elem.__name__.lower(), i)
             parser_src += '%s: %s\n' % (rule_name, rule)
 
             # Add rule to transformer
             def create_rule(elem, i):
-                return lambda *value: elem(i, *value)
+                sfield_names = [sfield[0] for sfield in sfields]
+                return lambda value: elem(**dict(zip(sfield_names, value)))
 
             rule_dict[rule_name] = create_rule(elem, i)
 
@@ -220,10 +222,12 @@ def is_type(member: Any, module: str) -> bool:
 #################################################################
 # Helper classes for dialects
 
-
+@dataclass
 class UnaryOperation(DialectOp):
     """ Helper class to create unary operations in dialects. """
-    _opname_ = 'UNDEF'
+    operand: Union[astnodes.SsaId, astnodes.StringLiteral, float, int, bool]
+    type: astnodes.Type
+    _opname_: str = field(init=False)
 
     @classmethod
     def make_rules(cls):
@@ -231,9 +235,13 @@ class UnaryOperation(DialectOp):
         super().make_rules()
 
 
+@dataclass
 class BinaryOperation(DialectOp):
     """ Helper class to create binary operations in dialects. """
-    _opname_ = 'UNDEF'
+    operand_a: Union[astnodes.SsaId, astnodes.StringLiteral, float, int, bool]
+    operand_b: Union[astnodes.SsaId, astnodes.StringLiteral, float, int, bool]
+    type: astnodes.Type
+    _opname_: str = field(init=False)
 
     @classmethod
     def make_rules(cls):

@@ -2,9 +2,10 @@
     MLIR. """
 
 from enum import Enum, auto
-from typing import Any, List, Union, Optional, Dict
+from typing import Any, List, Union, Optional
 from lark import Token
-from dataclasses import dataclass
+from lark.tree import Tree
+from dataclasses import dataclass, field
 
 
 class Node(object):
@@ -12,7 +13,7 @@ class Node(object):
     @classmethod
     def from_lark(cls, args: List[Any]):
         assert isinstance(args, list)
-        assert not any(isinstance(el, Token) for el in args)
+        assert not any(isinstance(el, (Token, Tree)) for el in args)
         return cls(*args)
 
     def dump_ast(self) -> str:
@@ -47,6 +48,7 @@ class StringLiteral(Node):
 @dataclass
 class Identifier(Node):
     value: str
+    _prefix_: str = field(init=False, default='')
 
     def dump(self, indent: int = 0) -> str:
         return self._prefix_ + self.value
@@ -56,11 +58,11 @@ class Identifier(Node):
 class SsaId(Identifier):
     value: str
     op_no: Optional[int] = None
-    _prefix_ = '%'
+    _prefix_: str = field(init=False, default='%')
 
     def dump(self, indent: int = 0) -> str:
-        if self.index:
-            return self._prefix_ + self.value + ("#%s" % self.index)
+        if self.op_no:
+            return self._prefix_ + self.value + ("#%s" % self.op_no)
         return self._prefix_ + self.value
 
 
@@ -438,9 +440,9 @@ class OpResult(Node):
 
 @dataclass
 class Operation(Node):
-    result_list: List[OpResult]
     op: "Op"
-    location = Optional["Location"]
+    result_list: Optional[List[OpResult]] = None
+    location: Optional["Location"] = None
 
     def dump(self, indent: int = 0) -> str:
         result = indent * '  '
@@ -551,10 +553,10 @@ class Module(Node):
 class Function(Node):
     name: SymbolRefId
     args: List["NamedArgument"]
-    result_types: List[Type]
     body: "Region"
-    location: Optional[Location]
-    attributes: Optional[Union[Attribute, AttrAlias]]
+    result_types: Optional[List[Type]] = None
+    location: Optional[Location] = None
+    attributes: Optional[Union[Attribute, AttrAlias]] = None
 
     def dump(self, indent=0) -> str:
         result = indent * '  ' + 'func'
@@ -589,8 +591,8 @@ class Region(Node):
 
 @dataclass
 class Block(Node):
-    label: "BlockLabel"
     body: List[Operation]
+    label: Optional["BlockLabel"] = None
 
     def dump(self, indent=0) -> str:
         result = ''
@@ -605,8 +607,8 @@ class Block(Node):
 @dataclass
 class BlockLabel(Node):
     name: BlockId
-    arg_ids: List[SsaId]
-    arg_types: List[Type]
+    arg_ids: Optional[List[SsaId]]
+    arg_types: Optional[List[Type]]
 
     def dump(self, indent: int = 0) -> str:
         result = dump_or_value(self.name, indent)
@@ -668,7 +670,7 @@ class MultiDimSemiAffineExpr(Node):
 @dataclass
 class AffineUnaryOp(Node):
     operand: AffineExpr
-    _op_: str
+    _op_: str = field(init=False)
 
     def dump(self, indent: int = 0) -> str:
         return self._op_ % dump_or_value(self.operand, indent)
@@ -678,7 +680,7 @@ class AffineUnaryOp(Node):
 class AffineBinaryOp(Node):
     operand_a: Union[AffineExpr, int]
     operand_b: Union[AffineExpr, int]
-    _op_: str
+    _op_: str = field(init=False)
 
     def dump(self, indent: int = 0) -> str:
         return '%s %s %s' % (dump_or_value(self.operand_a, indent), self._op_,

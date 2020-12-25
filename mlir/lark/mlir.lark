@@ -176,9 +176,11 @@ operation         : op_result_list? (pymlir_dialect_ops | custom_operation | gen
 ssa_id_and_type : ssa_id ":" type
 ssa_id_and_type_list : ssa_id_and_type ("," ssa_id_and_type)*
 block_arg_list : "(" ssa_id_and_type_list? ")"
+operation_list: operation+
 
 block_label     : block_id block_arg_list? ":"
-block           : block_label* operation+
+
+block           : block_label* operation_list
 region : "{" block* "}"
 
 // ----------------------------------------------------------------------
@@ -187,7 +189,6 @@ region : "{" block* "}"
 // Arguments
 named_argument : ssa_id ":" type attribute_dict?
 argument_list : (named_argument ("," named_argument)*) | (type attribute_dict? ("," type attribute_dict?)*)
-function_signature : symbol_ref_id "(" argument_list? ")" ("->" function_result_list)?
 
 // Return values
 function_result : type attribute_dict?
@@ -201,7 +202,7 @@ module_body : "{" (function | module | block)* "}"
 
 // Definition
 module : "module" symbol_ref_id? ("attributes" attribute_dict)? module_body trailing_location?
-function : "func" function_signature ("attributes" attribute_dict)? function_body? trailing_location?
+function : "func" symbol_ref_id "(" argument_list? ")" ("->" function_result_list)? ("attributes" attribute_dict)? function_body? trailing_location?
 
 // ----------------------------------------------------------------------
 // (semi-)affine expressions, maps, and integer sets
@@ -274,9 +275,9 @@ attribute_alias_def : attribute_alias "=" attribute_value
 ?definition : type_alias_def | affine_map_def | semi_affine_map_def | integer_set_def | attribute_alias_def
 
 ?start : value*
-?value : module
-       | definition
-       | function
+?value : module                  -> start_module
+       | definition              -> start_
+       | function                -> 
 
 // Lark imports
 %import common.ESCAPED_STRING
