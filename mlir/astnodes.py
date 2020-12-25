@@ -527,6 +527,8 @@ class FileLineColLoc(Location):
 # Modules, functions, and blocks
 
 
+
+
 @dataclass
 class Module(Node):
     name: str
@@ -631,6 +633,23 @@ class NamedArgument(Node):
                              dump_or_value(self.type, indent))
         if self.attributes:
             result += ' %s' % dump_or_value(self.attributes, indent)
+        return result
+
+
+# TODO: please come up with a better name
+@dataclass
+class MLIRFile(Node):
+    module: Module
+    definitions: Optional[List["Definitions"]] = None
+
+    def dump(self, indent: int = 0) -> str:
+        result = ''
+        if self.definitions:
+            result += '\n'.join(dump_or_value(defn, indent)
+                                for defn in self.definitions)
+
+        result += '\n'
+        result += dump_or_value(self.module, indent)
         return result
 
 

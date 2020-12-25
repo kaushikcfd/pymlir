@@ -197,11 +197,10 @@ function_result_list_parens : ("(" ")") | ("(" function_result_list_no_parens ")
 function_result_list : function_result_list_parens | non_function_type
 
 // Body
-module_body : "{" (function | module | block)* "}"
 ?function_body : region
 
 // Definition
-module : "module" symbol_ref_id? ("attributes" attribute_dict)? module_body trailing_location?
+module : "module" symbol_ref_id? ("attributes" attribute_dict)? region trailing_location?
 function : "func" symbol_ref_id "(" argument_list? ")" ("->" function_result_list)? ("attributes" attribute_dict)? function_body? trailing_location?
 
 // ----------------------------------------------------------------------
@@ -273,11 +272,18 @@ semi_affine_map_def : map_or_set_id "=" semi_affine_map_inline
 integer_set_def     : map_or_set_id "=" integer_set_inline
 attribute_alias_def : attribute_alias "=" attribute_value
 ?definition : type_alias_def | affine_map_def | semi_affine_map_def | integer_set_def | attribute_alias_def
+function_list = function+
 
 ?start : value*
 ?value : module                  -> start_module
        | definition              -> start_
        | function                -> 
+
+mlir_file
+
+?start: mlir_file
+
+mlir_file: definition_list module
 
 // Lark imports
 %import common.ESCAPED_STRING
