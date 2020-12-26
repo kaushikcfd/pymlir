@@ -34,6 +34,7 @@ class TreeToMlir(Transformer):
     true = lambda self, _: True
     false = lambda self, _: False
     id_chars = lambda self, val: str(val[0])
+    inttype_width = lambda self, val: int(val[0])
     dimension = astnodes.Dimension.from_lark
 
     # Literals
@@ -50,7 +51,7 @@ class TreeToMlir(Transformer):
 
     @v_args(inline=True)
     def string_literal(self, s):
-        return astnodes.StringLiteral.from_lark(s[1:-1].replace('\\"', '"'))
+        return astnodes.StringLiteral(s[1:-1].replace('\\"', '"'))
 
     @v_args(inline=True)
     def bare_id(self, *elements):
@@ -85,7 +86,7 @@ class TreeToMlir(Transformer):
     tuple_type = astnodes.TupleType.from_lark
     vector_type = astnodes.VectorType.from_lark
     ranked_tensor_type = astnodes.RankedTensorType.from_lark
-    unranked_tensor_type = astnodes.UnrankedTensorType.from_lark
+    unranked_tensor_type = lambda self, value: astnodes.UnrankedTensorType(value[1])  # gets rid of literal "*x"
     ranked_memref_type = astnodes.RankedMemRefType.from_lark
     unranked_memref_type = astnodes.UnrankedMemRefType.from_lark
     opaque_dialect_item = astnodes.OpaqueDialectType.from_lark
@@ -96,9 +97,9 @@ class TreeToMlir(Transformer):
     ###############################################################
     # MLIR Attributes
 
-    array_attribute = astnodes.ArrayAttr.from_lark
+    array_attribute = astnodes.ArrayAttr
     bool_attribute = astnodes.BoolAttr.from_lark
-    dictionary_attribute = astnodes.DictionaryAttr.from_lark
+    dictionary_attribute = astnodes.DictionaryAttr
     dense_elements_attribute = astnodes.DenseElementsAttr.from_lark
     opaque_elements_attribute = astnodes.OpaqueElementsAttr.from_lark
     sparse_elements_attribute = astnodes.SparseElementsAttr.from_lark
@@ -106,13 +107,13 @@ class TreeToMlir(Transformer):
     integer_attribute = astnodes.IntegerAttr.from_lark
     integer_set_attribute = astnodes.IntSetAttr.from_lark
     string_attribute = astnodes.StringAttr.from_lark
-    symbol_ref_attribute = astnodes.SymbolRefAttr.from_lark
+    symbol_ref_attribute = astnodes.SymbolRefAttr
     type_attribute = astnodes.TypeAttr.from_lark
     unit_attribute = astnodes.UnitAttr.from_lark
 
     dependent_attribute_entry = astnodes.AttributeEntry.from_lark
     dialect_attribute_entry = astnodes.DialectAttributeEntry.from_lark
-    attribute_dict = astnodes.AttributeDict.from_lark
+    attribute_dict = astnodes.AttributeDict
 
     ###############################################################
     # Operations
@@ -126,7 +127,12 @@ class TreeToMlir(Transformer):
     ###############################################################
     # Blocks, regions, modules, functions
 
-    block_label = astnodes.BlockLabel.from_lark
+    def block_label(self, value):
+        if value[1] is None:
+            arg_ids, argtypes = None, None
+        else:
+            arg_ids, argtypes = list(zip(*value[1]))
+            return astnodes.BlockLabel(value[0], arg_ids, argtypes)
     block = astnodes.Block.from_lark
     region = astnodes.Region
     module = astnodes.Module.from_lark
@@ -187,7 +193,6 @@ class TreeToMlir(Transformer):
     op_result_list = list
     successor_list = list
     ssa_id_and_type_list = tuple
-    block_arg_list = list
     ssa_use_and_type_list = list
     stride_list = list
     dimension_list_ranked = list
@@ -197,6 +202,7 @@ class TreeToMlir(Transformer):
     affine_constraint_conjunction = list
     function_result_list_no_parens = list
     multi_dim_affine_expr_no_parens = list
+    multi_dim_semi_affine_expr_no_parens = list
     dim_id_list = list
     symbol_id_list = list
     dim_use_list = list
@@ -205,7 +211,9 @@ class TreeToMlir(Transformer):
     argument_list = list
     definition_list = list
     function_list = list
+    module_list = list
     definition_and_function_list = tuple
+    definition_and_module_list = tuple
 
     ###############################################################
     # Composite types that should be reduced to sub-types
@@ -252,7 +260,17 @@ class TreeToMlir(Transformer):
         fns = sum([fns for defns, fns in defns_and_fns], [])
         return astnodes.MLIRFile(defns, astnodes.Module(None, None, astnodes.Region(fns)))
 
-    definitions_and_module_file = astnodes.MLIRFile.from_lark
+
+    def mlir_file_as_definition_and_module_list(self, defns_and_mods):
+        assert isinstance(defns_and_mods, list)
+        assert all(isinstance(el, tuple) for el in defns_and_mods)
+        defns = sum([defns for defns, mods in defns_and_mods], [])
+        mods = sum([mods for defns, mods in defns_and_mods], [])
+        if len(mods) == 1:
+            module = mods[0]
+        else:
+            module = astnodes.Module(None, None, astnodes.Region(mods))
+        return astnodes.MLIRFile(defns, module)
 
     # Dialect ops and types are appended to this list via "setattr"
 

@@ -32,6 +32,7 @@ class Node(object):
         return self.dump()
 
 
+@dataclass
 class StringLiteral(Node):
     value: str
 
@@ -48,7 +49,7 @@ class StringLiteral(Node):
 @dataclass
 class Identifier(Node):
     value: str
-    _prefix_: str = field(init=False, default='')
+    _prefix_: str = field(init=False, default='', repr=False)
 
     def dump(self, indent: int = 0) -> str:
         return self._prefix_ + self.value
@@ -58,7 +59,7 @@ class Identifier(Node):
 class SsaId(Identifier):
     value: str
     op_no: Optional[int] = None
-    _prefix_: str = field(init=False, default='%')
+    _prefix_: str = field(init=False, default='%', repr=False)
 
     def dump(self, indent: int = 0) -> str:
         if self.op_no:
@@ -165,14 +166,14 @@ class VectorType(Type):
             for t in self.dimensions) + 'x' + self.element_type.dump(indent))
 
 
-@dataclass
 class TensorType(Type):
-    element_type: Union[IntegerType, FloatType, ComplexType, VectorType]
+    pass
 
 
 @dataclass
 class RankedTensorType(TensorType):
     dimensions: List[Dimension]
+    element_type: Union[IntegerType, FloatType, ComplexType, VectorType]
 
     def dump(self, indent: int = 0) -> str:
         return 'tensor<%s>' % ('x'.join(
@@ -180,7 +181,10 @@ class RankedTensorType(TensorType):
             for t in self.dimensions) + 'x' + self.element_type.dump(indent))
 
 
+@dataclass
 class UnrankedTensorType(TensorType):
+    element_type: Union[IntegerType, FloatType, ComplexType, VectorType]
+
     def dump(self, indent: int = 0) -> str:
         return 'tensor<*x%s>' % self.element_type.dump(indent)
 
@@ -298,7 +302,7 @@ class BoolAttr(Attribute):
 
 @dataclass
 class DictionaryAttr(Attribute):
-    entries = List["AttributeEntry"]
+    value: List["AttributeEntry"]
 
     def dump(self, indent: int = 0) -> str:
         return '{%s}' % dump_or_value(self.value, indent)
@@ -365,12 +369,23 @@ class StringAttr(PrimitiveAttribute):
     pass
 
 
+@dataclass
 class IntSetAttr(Attribute):
-    pass
+    value: "AffineMap"
+
+    def dump(self, indent: int = 0) -> str:
+        return dump_or_value(self.value, indent)
 
 
+@dataclass
 class TypeAttr(Attribute):
-    pass
+    value: Any
+
+    def __post_init__(self):
+        import pudb; pu.db
+
+    def dump(self, indent: int = 0) -> str:
+        return dump_or_value(self.value, indent)
 
 
 @dataclass
@@ -404,7 +419,7 @@ class AttributeEntry(Node):
 class DialectAttributeEntry(Node):
     dialect: str
     name: str
-    value: Optional[Attribute]
+    value: Optional[Attribute] = None
 
     def dump(self, indent: int = 0) -> str:
         if self.value:
@@ -461,14 +476,18 @@ class Op(Node):
 @dataclass
 class GenericOperation(Op):
     name: str
-    args: List[SsaId]
-    attributes: AttributeDict
+    args: Optional[List[SsaId]]
+    attributes: Optional[AttributeDict]
     type: List[Type]
 
     def dump(self, indent: int = 0) -> str:
         result = '%s' % self.name
-        result += '(%s)' % ', '.join(
-            dump_or_value(arg, indent) for arg in self.args)
+        result += '('
+
+        if self.args:
+            result += ', '.join(dump_or_value(arg, indent) for arg in self.args)
+
+        result += ')'
         if self.attributes:
             result += ' ' + dump_or_value(self.attributes, indent)
         if isinstance(self.type, list):
@@ -534,13 +553,13 @@ class Module(Node):
     location: Optional[Location] = None
 
     def dump(self, indent=0) -> str:
-        result = indent * '  ' + 'module'
+        result = indent * '  ' + 'module '
         if self.name:
-            result += ' %s' % self.name.dump(indent)
+            result += '%s ' % self.name.dump(indent)
         if self.attributes:
             result += ' attributes ' + dump_or_value(self.attributes, indent)
 
-        result += dump_or_value(self.body)
+        result += self.body.dump(indent)
         if self.location:
             result += ' ' + self.location.dump(indent)
         return result
@@ -556,10 +575,11 @@ class Function(Node):
     location: Optional[Location] = None
 
     def dump(self, indent=0) -> str:
-        result = indent * '  ' + 'func'
+        result = 'func'
         result += ' %s' % self.name.dump(indent)
-        result += '(%s)' % ', '.join(
-            dump_or_value(arg, indent) for arg in self.args)
+        if self.args:
+            result += '(%s)' % ', '.join(
+                dump_or_value(arg, indent) for arg in self.args)
         if self.result_types:
             if not isinstance(self.result_types, list):
                 result += ' -> ' + dump_or_value(self.result_types, indent)
@@ -582,14 +602,14 @@ class Region(Node):
 
     def dump(self, indent=0) -> str:
         return ('{\n' + '\n'.join(
-            block.dump(indent + 1)
-            for block in self.body) + '\n%s}' % (indent * '  '))
+            op.dump(indent + 1)
+            for op in self.body) + '\n%s}' % (indent * '  '))
 
 
 @dataclass
 class Block(Node):
+    label: Optional["BlockLabel"]
     body: List[Operation]
-    label: Optional["BlockLabel"] = None
 
     def dump(self, indent=0) -> str:
         result = ''
@@ -643,7 +663,8 @@ class MLIRFile(Node):
             result += '\n'.join(dump_or_value(defn, indent)
                                 for defn in self.definitions)
 
-        result += '\n'
+            result += '\n'
+
         result += dump_or_value(self.module, indent)
         return result
 
@@ -662,7 +683,7 @@ class SemiAffineExpr(Node):
 
 @dataclass
 class MultiDimAffineExpr(Node):
-    dims = List[AffineExpr]
+    dims: List[AffineExpr]
 
     def dump(self, indent: int = 0) -> str:
         return '%s : (%s)' % (dump_or_value(self.dims_and_symbols, indent),
@@ -674,7 +695,7 @@ class MultiDimAffineExpr(Node):
 
 @dataclass
 class MultiDimSemiAffineExpr(Node):
-    dims = List[SemiAffineExpr]
+    dims: List[SemiAffineExpr]
 
     def dump(self, indent: int = 0) -> str:
         return '(%s)' % dump_or_value(self.dims, indent)
@@ -718,10 +739,10 @@ class AffineMod(AffineBinaryOp): _op_ = 'mod'
 @dataclass
 class DimAndSymbolList(Node):
     dims: List[str]
-    symbols: List[str]
+    symbols: Optional[List[str]]
 
     def dump(self, indent: int = 0) -> str:
-        if len(self.symbols) > 0:
+        if self.symbols:
             return '(%s)[%s]' % (dump_or_value(self.dims, indent),
                                  dump_or_value(self.symbols, indent))
         return '(%s)' % dump_or_value(self.dims, indent)
@@ -744,7 +765,7 @@ class AffineConstraintEqual(AffineConstraint):
 
 @dataclass
 class AffineMap(Node):
-    dim_and_symbols: DimAndSymbolList
+    dims_and_symbols: DimAndSymbolList
     map: MultiDimAffineExpr
 
     def dump(self, indent: int = 0) -> str:
@@ -754,7 +775,7 @@ class AffineMap(Node):
 
 @dataclass
 class SemiAffineMap(Node):
-    dim_and_symbols: DimAndSymbolList
+    dims_and_symbols: DimAndSymbolList
     map: MultiDimSemiAffineExpr
 
     def dump(self, indent: int = 0) -> str:
@@ -764,12 +785,12 @@ class SemiAffineMap(Node):
 
 @dataclass
 class IntSet(Node):
-    dim_and_symbols: DimAndSymbolList
-    constraints: List[AffineConstraint]
+    dims_and_symbols: DimAndSymbolList
+    constraints: Optional[List[AffineConstraint]]
 
     def dump(self, indent: int = 0) -> str:
         return '%s : (%s)' % (dump_or_value(self.dims_and_symbols, indent),
-                              dump_or_value(self.constraints, indent))
+                              dump_or_value(self.constraints, indent) if self.constraints else '')
 
 
 ##############################################################################
