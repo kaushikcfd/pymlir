@@ -113,8 +113,6 @@ ssa_use_and_type_list : ssa_use_and_type ("," ssa_use_and_type)*
 // ----------------------------------------------------------------------
 // Attributes
 
-// FIXME: collect this somewhere else
-
 // Simple attribute types
 array_attribute : "[" (attribute_value ("," attribute_value)*)? "]"
 bool_attribute : bool_literal
@@ -152,8 +150,6 @@ attribute_dict : ("{" "}") | ("{" attribute_entry ("," attribute_entry)* "}")
 
 // ----------------------------------------------------------------------
 // Operations
-
-// FIXME:
 
 // Types that appear after the operation, indicating return types
 trailing_type     : ":" (function_type | function_result_type)
@@ -311,10 +307,6 @@ function_list                : function*
 module_list                  : module*
 definition_and_function_list : definition_list function_list
 definition_and_module_list   : definition_list module_list
-
-// FIXME: module is an "Op" => need to handle cases like regions can contain modules
-// and file can contain multiple modules
-
 
 mlir_file: definition_and_function_list*       -> only_functions_and_definitions_file
          | definition_and_module_list*         -> mlir_file_as_definition_and_module_list

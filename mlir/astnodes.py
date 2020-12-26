@@ -5,7 +5,7 @@ from enum import Enum, auto
 from typing import Any, List, Union, Optional
 from lark import Token
 from lark.tree import Tree
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, is_dataclass
 
 
 class Node(object):
@@ -21,6 +21,13 @@ class Node(object):
         warn("dump_ast is deprecated, simply call 'repr' on the object",
              DeprecationWarning, stacklevel=2)
         return repr(self)
+
+    @property
+    def _fields_(self) -> List[str]:
+        if is_dataclass(self):
+            return self.__dataclass_fields__.keys()
+        else:
+            raise AttributeError(f"'self.__class__' object has not attribute '_fields_'")
 
     def dump(self, indent: int = 0) -> str:
         """ Dumps the AST node and its children in MLIR format.

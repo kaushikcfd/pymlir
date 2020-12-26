@@ -35,7 +35,10 @@ class ToyImplementation(Node):
     """ Base "toy" implementation AST node. Corresponds to a "+"-separated list
         of sparse tensor types.
     """
-    values: List[str]
+    _fields_ = ['values']
+
+    def __init__(self, values: List[str]):
+        self.values = values
 
     def dump(self, indent: int = 0) -> str:
         return '+'.join(dump_or_value(v, indent) for v in self.values)
