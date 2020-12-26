@@ -549,11 +549,11 @@ class Module(Node):
 @dataclass
 class Function(Node):
     name: SymbolRefId
-    args: List["NamedArgument"]
-    body: "Region"
-    result_types: Optional[List[Type]] = None
+    args: Optional[List["NamedArgument"]]
+    result_types: Optional[List[Type]]
+    attributes: Optional[Union[Attribute, AttrAlias]]
+    body: Optional["Region"]
     location: Optional[Location] = None
-    attributes: Optional[Union[Attribute, AttrAlias]] = None
 
     def dump(self, indent=0) -> str:
         result = indent * '  ' + 'func'

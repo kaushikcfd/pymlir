@@ -119,11 +119,7 @@ class TreeToMlir(Transformer):
 
     op_result = astnodes.OpResult.from_lark
     location = astnodes.FileLineColLoc.from_lark
-
-    def operation(self, value):
-        import pudb; pu.db
-
-    # operation = astnodes.Operation.from_lark
+    operation = astnodes.Operation.from_lark
     generic_operation = astnodes.GenericOperation.from_lark
     custom_operation = astnodes.CustomOperation.from_lark
 
@@ -190,7 +186,6 @@ class TreeToMlir(Transformer):
     ssa_use_list = list
     op_result_list = list
     successor_list = list
-    function_body = list
     ssa_id_and_type_list = tuple
     block_arg_list = list
     ssa_use_and_type_list = list
@@ -253,10 +248,15 @@ class TreeToMlir(Transformer):
     def only_functions_and_definitions_file(self, defns_and_fns):
         assert isinstance(defns_and_fns, list)
         assert all(isinstance(el, tuple) for el in defns_and_fns)
-        defns = sum([defns for defns, fns in defns_and_fns], start=[])
-        fns = sum([fns for defns, fns in defns_and_fns], start=[])
+        defns = sum([defns for defns, fns in defns_and_fns], [])
+        fns = sum([fns for defns, fns in defns_and_fns], [])
         return astnodes.MLIRFile(defns, astnodes.Module(None, None, astnodes.Region(fns)))
 
     definitions_and_module_file = astnodes.MLIRFile.from_lark
 
     # Dialect ops and types are appended to this list via "setattr"
+
+    def optional(self, value):
+        assert isinstance(value, list)
+        assert len(value) in [0, 1]
+        return value[0] if value else None
