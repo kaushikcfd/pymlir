@@ -1,4 +1,4 @@
-import mlir.astnodess as ast
+import mlir.astnodes as ast
 import mlir.dialects.standard as std
 import mlir.dialects.affine as affine
 from typing import Optional, Tuple, Union, List
@@ -20,11 +20,6 @@ class IRBuilder:
 
         An instance of :class:`int`, indicating the position where the next
         operation is to be added in the .
-
-    .. attribute:: functions
-
-        A mapping from function names to the :class:`ast.Function` of
-        :attr:`module`.
 
     .. note::
 
@@ -68,7 +63,7 @@ class IRBuilder:
         return ast.Function(name=ast.SymbolRefId(value=name))
 
     @classmethod
-    def make_block(cls, region: ast.Reagion, name: Optional[str]) -> ast.Block:
+    def make_block(cls, region: ast.Region, name: Optional[str]) -> ast.Block:
         if name is None:
             name = cls.name_gen("bb")
 
@@ -77,6 +72,21 @@ class IRBuilder:
         block = ast.Block(...)
         region.body.append(block)
         return block
+
+    @classmethod
+    def add_function_arg(cls, dtype: ast.Type, name: Optional[str] = None,
+                         pos: Optional[int] = None):
+        # FIXME: incomplete
+        if name is None:
+            name = cls.name_gen("fnarg")
+
+        if cls.current_function is None:
+            raise ValueError("Not within a function to add args to it.")
+
+        if pos is None:
+            pos = len(cls.function.args)
+
+        cls.function.args.insert(pos, ast.NamedArgument(ast.SsaId(value=name), type=dtype))
 
     def MemRefType(self,
                    name: str,
@@ -223,7 +233,7 @@ class IRBuilder:
         self.block = parent_block
         self.position = parent_position
 
-    def affine_load(self, memref: ast.SsaId, indices: List[ast.AffineNode],
+    def affine_load(self, memref: ast.SsaId, indices: List[affine.AffineExpr],
             memref_type: ast.MemRefType, name=Optional[str]):
         op = affine.AffineLoadOp(arg=memref, index=ast.MultiDimAffineExpression(indices), type=memref_type)
 
