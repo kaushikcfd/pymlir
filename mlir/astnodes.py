@@ -676,12 +676,35 @@ class MLIRFile(Node):
 # Affine and semi-affine expressions
 
 # Types of affine expressions
+# Contents of single/multi-dimensional (semi-)affine expressions
 class AffineExpr(Node):
-    pass
+    # TODO: The operands in these expressions should be wrapped in
+    # "AffineParens" to enforce operator precedence whenever it might be
+    # violated. Since it is only supposed to cater MLIR AST having
+    # "Parentheses" node makes sense.
+    def __add__(self, other: Union["AffineExpr", int]):
+        return AffineAdd(operand_a=self, operand_b=other)
+
+    def __sub__(self, other: Union["AffineExpr", int]):
+        return AffineSub(operand_a=self, operand_b=other)
+
+    def __mul__(self, other: int):
+        return AffineMul(operand_a=self, operand_b=other)
+
+    def __neg__(self):
+        return AffineNeg(operand=self)
+
+    __radd__ = __add__
+    __rsub__ = __sub__
+    __rmul__ = __mul__
 
 
-class SemiAffineExpr(Node):
-    pass
+class SemiAffineExpr(AffineExpr):
+    def __floordiv__(self, other: int):
+        return AffineFloorDiv(operand_a=self, operand_b=other)
+
+    def __mod__(self, other: int):
+        return AffineMod(operand_a=self, operand_b=other)
 
 
 @dataclass
@@ -704,9 +727,22 @@ class MultiDimSemiAffineExpr(Node):
         return '(%s)' % dump_or_value(self.dims, indent)
 
 
-# Contents of single/multi-dimensional (semi-)affine expressions
+class AffineSsa(SsaId, AffineExpr):
+    def __init__(self, value: str, index: Optional[str]):
+        self.value = value
+        self.index = index
+
+
 @dataclass
-class AffineUnaryOp(Node):
+class AffineDimOrSymbol(AffineExpr):
+    value: str
+
+    def dump(self, indent: int = 0) -> str:
+        return self.value
+
+
+@dataclass
+class AffineUnaryOp(AffineExpr):
     operand: AffineExpr
     _op_: str = field(init=False, repr=False)
 
@@ -715,7 +751,7 @@ class AffineUnaryOp(Node):
 
 
 @dataclass
-class AffineBinaryOp(Node):
+class AffineBinaryOp(AffineExpr):
     operand_a: Union[AffineExpr, int]
     operand_b: Union[AffineExpr, int]
     _op_: str = field(init=False, repr=False)
