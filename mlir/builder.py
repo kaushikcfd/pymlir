@@ -82,20 +82,26 @@ class IRBuilder:
         return block
 
     @classmethod
-    def add_function_arg(cls, function: ast.Function, dtype: ast.Type,
-                         name: Optional[str] = None, pos: Optional[int] = None):
-        if name is None:
-            name = cls.name_gen("fnarg")
+    def add_function_args(cls, function: ast.Function, dtypes: List[ast.Type],
+                          names: Optional[List[str]] = None,
+                          positions: Optional[List[int]] = None):
+        if names is None:
+            names = [cls.name_gen("fnarg") for _ in dtypes]
 
         if function.args is None:
             function.args = []
 
-        if pos is None:
-            pos = len(function.args)
+        if positions is None:
+            positions = list(range(len(function.args), len(function.args) + len(dtypes)))
 
-        arg = ast.SsaId(name)
-        function.args.insert(pos, ast.NamedArgument(arg, dtype))
-        return arg
+        args = []
+
+        for name, dtype, pos in zip(names, dtypes, positions):
+            arg = ast.SsaId(name)
+            function.args.insert(pos, ast.NamedArgument(arg, dtype))
+            args.append(arg)
+
+        return args
 
     def MemRefType(self,
                    dtype: ast.Type,
