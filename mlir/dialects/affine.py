@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 Literal = Union[ast.StringLiteral, float, int, bool]
 SsaUse = Union[ast.SsaId, Literal]
+AffineSsaUse = Union[ast.AffineSsa, int]
 
 
 @dataclass
