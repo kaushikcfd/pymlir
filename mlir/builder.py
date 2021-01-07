@@ -38,9 +38,9 @@ class IRBuilder:
 
     name_gen = UniqueNameGenerator(forced_prefix="_pymlir_")
 
-    F16 = ast.FloatType(type=ast.FloatTypeEnum.f32)
+    F16 = ast.FloatType(type=ast.FloatTypeEnum.f16)
     F32 = ast.FloatType(type=ast.FloatTypeEnum.f32)
-    F64 = ast.FloatType(type=ast.FloatTypeEnum.f32)
+    F64 = ast.FloatType(type=ast.FloatTypeEnum.f64)
     INT32 = ast.IntegerType(32)
     INT64 = ast.IntegerType(64)
     INDEX = ast.IndexType()
@@ -93,7 +93,9 @@ class IRBuilder:
         if pos is None:
             pos = len(function.args)
 
-        function.args.insert(pos, ast.NamedArgument(ast.SsaId(value=name), type=dtype))
+        arg = ast.SsaId(name)
+        function.args.insert(pos, ast.NamedArgument(arg, dtype))
+        return arg
 
     def MemRefType(self,
                    dtype: ast.Type,
@@ -109,6 +111,7 @@ class IRBuilder:
             assert strides is None
             return ast.UnrankedMemRefType(dtype)
         else:
+            shape = tuple(ast.Dimension(dim) for dim in shape)
             if strides is None and offset is None:
                 layout = None
             else:
@@ -121,12 +124,29 @@ class IRBuilder:
 
             return ast.RankedMemRefType(shape, dtype, layout)
 
-    def _append_op_to_block(self, op_results, op):
+    def _append_op_to_block(self, op_results: List[Optional[Union[ast.SsaId, str]]], op):
+        new_op_results = []
+        for op_result in op_results:
+            if op_result is None:
+                op_result = self.name_gen("ssa")
+
+            if isinstance(op_result, str):
+                result = ast.SsaId(op_result)
+
+            new_op_results.append(result)
+
         if self.block is None:
             raise ValueError("Not within any block to append")
 
-        self.block.body.append(ast.Operation(result_list=op_results, op=op,
+        self.block.body.append(ast.Operation(result_list=new_op_results, op=op,
                                               location=None))
+
+        if len(new_op_results) == 1:
+            return new_op_results[0]
+        elif len(new_op_results) > 1:
+            return new_op_results
+        else:
+            return
 
     def position_before(self, query):
         # would need some traversal to get this right.
@@ -174,27 +194,13 @@ class IRBuilder:
 
     def addf(self, op_a: ast.SsaId, op_b: ast.SsaId, type: ast.Type,
              name: Optional[str] = None):
-        # TODO: This should be defined by StdIRBuilder
         op = std.AddfOperation(_match=0, operand_a=op_a, operand_b=op_b, type=type)
-        if name is None:
-            name = self.name_gen("ssa")
+        return self._append_op_to_block([name], op)
 
-        result = ast.SsaId(value=name)
-        self._append_op_to_block([result], op)
-
-        return result
-
-    def mulf(self, op_a: ast.SsaId, op_b: ast.SsaId, ret_type: ast.Type,
+    def mulf(self, op_a: ast.SsaId, op_b: ast.SsaId, type: ast.Type,
              name: Optional[str] = None):
-        # TODO: This should be defined by StdIRBuilder
         op = std.MulfOperation(_match=0, operand_a=op_a, operand_b=op_b, type=type)
-        if name is None:
-            name = self.name_gen("ssa")
-
-        result = ast.SsaId(value=name)
-        self._append_op_to_block([result], op)
-
-        return result
+        return self._append_op_to_block([name], op)
 
     def return_from_function(self):
         raise NotImplementedError()
@@ -202,48 +208,20 @@ class IRBuilder:
     def dim(self, memref_or_tensor: ast.SsaId, index: ast.SsaId,
             memref_type: Union[ast.MemRefType, ast.TensorType],
             name: Optional[str] = None):
-        # TODO: This should be defined by StdIRBuilder
         op = std.DimOperation(_match=0, operand=memref_or_tensor, index=index, type=memref_type)
-        if name is None:
-            name = self.name_gen("ssa")
-
-        result = ast.SsaId(value=name)
-        self._append_op_to_block([result], op)
-
-        return result
+        return self._append_op_to_block([name], op)
 
     def index_constant(self, value: int, name: Optional[str] = None):
-        # TODO: This should be defined by StdIRBuilder
-
-        op = std.ConstantOperation(_match=0,
-                                   value=value,
-                                   type=ast.IndexType())
-        if name is None:
-            name = self.name_gen("ssa")
-
-        result = ast.SsaId(value=name)
-        self._append_op_to_block([result], op)
-
-        return result
+        op = std.ConstantOperation(_match=0, value=value, type=ast.IndexType())
+        return self._append_op_to_block([name], op)
 
     def float_constant(self, value: float, type: ast.FloatType, name: Optional[str] = None):
-        # TODO: This should be defined by StdIRBuilder
-
-        op = std.ConstantOperation(_match=0,
-                                   value=value,
-                                   type=type)
-        if name is None:
-            name = self.name_gen("ssa")
-
-        result = ast.SsaId(value=name)
-        self._append_op_to_block([result], op)
-
-        return result
+        op = std.ConstantOperation(_match=0, value=value, type=type)
+        return self._append_op_to_block([name], op)
 
     def affine_for(self, lower_bound: Union[int, ast.SsaId],
                    upper_bound: Union[int, ast.SsaId],
                    step: Optional[int] = None, indexname: Optional[str] = None):
-        #TODO: This should be defined by AffineIRBuilder
         if indexname is None:
             indexname = self.name_gen("i")
             index = ast.AffineSsa(indexname)
@@ -259,23 +237,15 @@ class IRBuilder:
                                 region=ast.Region(body=[]))
 
         self._append_op_to_block([], op)
-
         return op
 
     def affine_load(self, memref: ast.SsaId, indices: Union[ast.AffineExpr, List[ast.AffineExpr]],
-                    memref_type: ast.MemRefType, name=Optional[str]):
+                    memref_type: ast.MemRefType, name: Optional[str] = None):
         if isinstance(indices, ast.AffineExpr):
             indices = [indices]
 
         op = affine.AffineLoadOp(_match=0, arg=memref, index=ast.MultiDimAffineExpr(indices), type=memref_type)
-
-        if name is None:
-            name = self.name_gen("ssa")
-
-        result = ast.SsaId(value=name)
-        self._append_op_to_block([result], op)
-
-        return result
+        return self._append_op_to_block([name], op)
 
     def affine_store(self, address: ast.SsaId, memref: ast.SsaId,
                      indices: Union[ast.AffineExpr, List[ast.AffineExpr]],
@@ -285,12 +255,12 @@ class IRBuilder:
 
         op = affine.AffineStoreOp(_match=0, addr=address, ref=memref,
                                   index=ast.MultiDimAffineExpr(indices), type=memref_type)
-
         self._append_op_to_block([], op)
 
     def ret(self, values: Optional[List[ast.SsaId]] = None,
             types: Optional[List[ast.Type]] = None):
 
         op = std.ReturnOperation(_match=0, values=values, types=types)
-
         self._append_op_to_block([], op)
+        self.block = None
+        self.position = 0
