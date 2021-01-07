@@ -728,9 +728,7 @@ class MultiDimSemiAffineExpr(Node):
 
 
 class AffineSsa(SsaId, AffineExpr):
-    def __init__(self, value: str, index: Optional[str]):
-        self.value = value
-        self.index = index
+    pass
 
 
 @dataclass
