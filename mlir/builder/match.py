@@ -21,14 +21,11 @@ class MatchExpressionBase:
     def __and__(self, other: "MatchExpressionBase") -> "And":
         return And([self, other])
 
-    def __or__(self, other: "MatchExpressionBase") -> "And":
+    def __or__(self, other: "MatchExpressionBase") -> "Or":
         return Or([self, other])
 
 
-@dataclass
 class All(MatchExpressionBase):
-    children: List[MatchExpressionBase]
-
     def __call__(self, op: ast.Operation) -> bool:
         return True
 
