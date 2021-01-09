@@ -1,7 +1,7 @@
 import sys
 from mlir import parse_string
 from mlir.builder import IRBuilder
-from mlir.builder import Reads, Writes, Isa, Not
+from mlir.builder import Reads, Writes, Isa
 from mlir.dialects.affine import AffineLoadOp
 from mlir.dialects.standard import AddfOperation
 
@@ -18,7 +18,7 @@ def test_saxpy_builder():
         saxpy_fn = builder.function("saxpy")
 
     block = builder.make_block(saxpy_fn.region)
-    builder.position_at_start(block)
+    builder.position_at_entry(block)
 
     a, x, y = builder.add_function_args(saxpy_fn, [F64, Mref1D, Mref1D])
     c0 = builder.index_constant(0)
@@ -81,7 +81,7 @@ def test_build_with_queries():
     a0, a1, b0, b1, c0, c1 = builder.add_function_args(fn, [F64]*6)
 
     fnbody = builder.make_block(fn.region)
-    builder.position_at_start(fnbody)
+    builder.position_at_entry(fnbody)
 
     def index(expr):
         return next((i
@@ -101,7 +101,6 @@ def test_build_with_queries():
     assert index(Reads(b0)) == 0
     assert index(Reads(c0)) == 1
     assert index(Reads(a0)) == 2
-
 
 
 if __name__ == "__main__":
