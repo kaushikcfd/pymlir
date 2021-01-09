@@ -1,17 +1,18 @@
 """Operation query interface."""
 
 import mlir.astnodes as ast
-from mlir.visitor import NodeVisitor
+from mlir.visitors import NodeVisitor
 from typing import List, Union
 from dataclasses import dataclass
+from mlir.dialects.affine import AffineLoadOp
 
 
 class SsaIdCollector(NodeVisitor):
     def __init__(self):
-        self.visited_ssas = set()
+        self.visited_ssas = []
 
     def visit_SsaId(self, ssa: ast.SsaId):
-        self.visited_ssas.add(ssa)
+        self.visited_ssas.append(ssa)
 
 
 class MatchExpressionBase:
@@ -59,8 +60,10 @@ class Reads(MatchExpressionBase):
     name: Union[str, ast.SsaId]
 
     def __call__(self, op: ast.Operation) -> bool:
-        visited_ssas = SsaIdCollector().visit(op.operation).visited_ssas
-        return any((ssa is self.name) or (ssa.dump() == self.name)
+        collector = SsaIdCollector()
+        collector.visit(op.op)
+        visited_ssas = collector.visited_ssas
+        return any((ssa == self.name) or (ssa.dump() == self.name)
                    for ssa in visited_ssas)
 
 
@@ -69,7 +72,7 @@ class Writes(MatchExpressionBase):
     name: Union[str, ast.SsaId]
 
     def __call__(self, op: ast.Operation) -> bool:
-        return any((ssa is self.name) or (ssa.dump() == self.name)
+        return any((ssa == self.name) or (ssa.dump() == self.name)
                    for ssa in op.result_list)
 
 
@@ -78,7 +81,7 @@ class Isa(MatchExpressionBase):
     type: type
 
     def __call__(self, op: ast.Operation) -> bool:
-        return isinstance(op.operation, self.type)
+        return isinstance(op.op, self.type)
 
 
 writes = Writes
