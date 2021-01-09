@@ -4,7 +4,8 @@ import mlir.dialects.affine as affine
 from typing import Optional, Tuple, Union, List
 from pytools import UniqueNameGenerator
 from contextlib import contextmanager
-from mlir.builder.match import Reads, Writes, Isa, Not, All  # noqa: F401
+from mlir.builder.match import (Reads, Writes, Isa, All,
+                                And, Or, Not)  # noqa: F401
 from mlir.builder.match import MatchExpressionBase
 
 
@@ -99,7 +100,7 @@ class IRBuilder:
             name = ast.SymbolRefId(name)
 
         op = ast.Module(name, None, ast.Region([]))
-        self._append_op_to_block([], op)
+        self._insert_op_in_block([], op)
         return op
 
     def function(self, name: Optional[str] = None) -> ast.Function:
@@ -108,7 +109,7 @@ class IRBuilder:
 
         op = ast.Function(ast.SymbolRefId(value=name), [], [], None, ast.Region([]))
 
-        self._append_op_to_block([], op)
+        self._insert_op_in_block([], op)
         return op
 
     @classmethod
@@ -171,7 +172,7 @@ class IRBuilder:
 
             return ast.RankedMemRefType(shape, dtype, layout)
 
-    def _append_op_to_block(self, op_results: List[Optional[Union[ast.SsaId, str]]], op):
+    def _insert_op_in_block(self, op_results: List[Optional[Union[ast.SsaId, str]]], op):
         new_op_results = []
         for op_result in op_results:
             if op_result is None:
@@ -185,8 +186,9 @@ class IRBuilder:
         if self.block is None:
             raise ValueError("Not within any block to append")
 
-        self.block.body.append(ast.Operation(result_list=new_op_results, op=op,
-                                              location=None))
+        self.block.body.insert(self.position, ast.Operation(result_list=new_op_results,
+                                                            op=op))
+        self.position += 1
 
         if len(new_op_results) == 1:
             return new_op_results[0]
@@ -246,7 +248,7 @@ class IRBuilder:
             self.position = next((i
                                   for i, op in zip(range(len(self.block)-1, -1, -1),
                                                    reversed(self.block.body))
-                                  if query(op)))
+                                  if query(op))) + 1
         except StopIteration:
             raise ValueError(f"Did not find an operation matching '{query}'.")
 
@@ -282,26 +284,26 @@ class IRBuilder:
     def addf(self, op_a: ast.SsaId, op_b: ast.SsaId, type: ast.Type,
              name: Optional[str] = None):
         op = std.AddfOperation(_match=0, operand_a=op_a, operand_b=op_b, type=type)
-        return self._append_op_to_block([name], op)
+        return self._insert_op_in_block([name], op)
 
     def mulf(self, op_a: ast.SsaId, op_b: ast.SsaId, type: ast.Type,
              name: Optional[str] = None):
         op = std.MulfOperation(_match=0, operand_a=op_a, operand_b=op_b, type=type)
-        return self._append_op_to_block([name], op)
+        return self._insert_op_in_block([name], op)
 
     def dim(self, memref_or_tensor: ast.SsaId, index: ast.SsaId,
             memref_type: Union[ast.MemRefType, ast.TensorType],
             name: Optional[str] = None):
         op = std.DimOperation(_match=0, operand=memref_or_tensor, index=index, type=memref_type)
-        return self._append_op_to_block([name], op)
+        return self._insert_op_in_block([name], op)
 
     def index_constant(self, value: int, name: Optional[str] = None):
         op = std.ConstantOperation(_match=0, value=value, type=ast.IndexType())
-        return self._append_op_to_block([name], op)
+        return self._insert_op_in_block([name], op)
 
     def float_constant(self, value: float, type: ast.FloatType, name: Optional[str] = None):
         op = std.ConstantOperation(_match=0, value=value, type=type)
-        return self._append_op_to_block([name], op)
+        return self._insert_op_in_block([name], op)
 
     # }}}
 
@@ -324,7 +326,7 @@ class IRBuilder:
                                 begin=lower_bound, end=upper_bound, step=step,
                                 region=ast.Region(body=[]))
 
-        self._append_op_to_block([], op)
+        self._insert_op_in_block([], op)
         return op
 
     def affine_load(self, memref: ast.SsaId, indices: Union[ast.AffineExpr, List[ast.AffineExpr]],
@@ -333,7 +335,7 @@ class IRBuilder:
             indices = [indices]
 
         op = affine.AffineLoadOp(_match=0, arg=memref, index=ast.MultiDimAffineExpr(indices), type=memref_type)
-        return self._append_op_to_block([name], op)
+        return self._insert_op_in_block([name], op)
 
     def affine_store(self, address: ast.SsaId, memref: ast.SsaId,
                      indices: Union[ast.AffineExpr, List[ast.AffineExpr]],
@@ -343,13 +345,13 @@ class IRBuilder:
 
         op = affine.AffineStoreOp(_match=0, addr=address, ref=memref,
                                   index=ast.MultiDimAffineExpr(indices), type=memref_type)
-        self._append_op_to_block([], op)
+        self._insert_op_in_block([], op)
 
     def ret(self, values: Optional[List[ast.SsaId]] = None,
             types: Optional[List[ast.Type]] = None):
 
         op = std.ReturnOperation(_match=0, values=values, types=types)
-        self._append_op_to_block([], op)
+        self._insert_op_in_block([], op)
         self.block = None
         self.position = 0
 
