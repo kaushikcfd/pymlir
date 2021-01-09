@@ -20,7 +20,7 @@ class AffineApplyOp(DialectOp):
 
 @dataclass
 class AffineForOp(DialectOp):
-    index: ast.SsaId
+    index: ast.AffineSsa
     begin: Union[ast.SsaId, int]
     end: Union[ast.SsaId, int]
     region: ast.Region
