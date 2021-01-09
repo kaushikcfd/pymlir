@@ -10,10 +10,8 @@ from mlir.builder.match import MatchExpressionBase
 
 class IRBuilder:
     """
-    Mutable class as a helper to build MLIR block AST. The aim of this class is
-    to provide the building blocks for the core dialect operations. Builders
-    that include custom dialects can sub-class from this and implement support
-    for the operations within the custom dialect.
+    MLIR AST builder. Provides convenience methods for adding core dialect
+    operations to a :class:`~mlir.astnodes.Block`.
 
     .. attribute:: block
 
@@ -32,6 +30,47 @@ class IRBuilder:
 
         * This class shared design elements from :class:`llvmlite.ir.IRBuilder`,
           querying mechanism from :mod:`loopy`
+
+
+    Position/block manipulation
+    ===========================
+    .. automethod:: position_at_start
+    .. automethod:: position_at_end
+    .. automethod:: goto_block
+    .. automethod:: goto_entry_block
+    .. automethod:: goto_before
+    .. automethod:: goto_after
+
+    Types
+    =====
+
+    :attr F16: f16 type
+    :attr F32: f32 type
+    :attr F64: f64 type
+    :attr INT32: i32 type
+    :attr INT64: i64 type
+    :attr INDEX: index type
+    .. automethod:: MemRefType
+
+    Affine dialect ops
+    ==================
+
+    .. automethod:: affine_for
+    .. automethod:: affine_load
+    .. automethod:: affine_store
+
+    Standard dialect ops
+    ====================
+
+    .. automethod:: dim
+    .. automethod:: addf
+    .. automethod:: mulf
+
+    std.constant
+    ^^^^^^^^^^^^
+
+    .. automethod:: index_constant
+    .. automethod:: float_constant
     """
 
     def __init__(self):
@@ -156,6 +195,8 @@ class IRBuilder:
         else:
             return
 
+    # {{{ position/block manipulation
+
     def position_at_start(self, block: ast.Block):
         self.block = block
         self.position = 0
@@ -230,6 +271,8 @@ class IRBuilder:
 
         self.block = parent_block
         self.position = parent_position
+
+    # }}}
 
     def make_attribute_entry(self, name: str, value: ast.Attribute):
         raise NotImplementedError()
