@@ -4,6 +4,8 @@ import mlir.dialects.affine as affine
 from typing import Optional, Tuple, Union, List
 from pytools import UniqueNameGenerator
 from contextlib import contextmanager
+from mlir.builder.match import Reads, Writes, Isa, Not, All  # noqa: F401
+from mlir.builder.match import MatchExpressionBase
 
 
 class IRBuilder:
@@ -154,17 +156,6 @@ class IRBuilder:
         else:
             return
 
-    def position_before(self, query):
-        # would need some traversal to get this right.
-        # I'm imagining this design would be similar to loopy's query language.
-        # As: builder.position_before("reads:%a and"
-        #                             " isa(mlir.dialects.affine.AffineStore))"
-        raise NotImplementedError()
-
-    def position_after(self, query):
-        # would need some traversal to get this right.
-        raise NotImplementedError()
-
     def position_at_start(self, block: ast.Block):
         self.block = block
         self.position = 0
@@ -195,8 +186,55 @@ class IRBuilder:
         self.block = parent_block
         self.position = parent_position
 
+    def position_before(self, query: MatchExpressionBase, block: Optional[ast.Block] = None):
+        if block is not None:
+            self.block = block
+
+        try:
+            self.position = next((i
+                                  for i, op in enumerate(self.block.body)
+                                  if query(op)))
+        except StopIteration:
+            raise ValueError(f"Did not find an operation matching '{query}'.")
+
+    def position_after(self, query, block: Optional[ast.Block] = None):
+        if block is not None:
+            self.block = block
+
+        try:
+            self.position = next((i
+                                  for i, op in zip(range(len(self.block)-1, -1, -1),
+                                                   reversed(self.block.body))
+                                  if query(op)))
+        except StopIteration:
+            raise ValueError(f"Did not find an operation matching '{query}'.")
+
+    @contextmanager
+    def goto_before(self, query: MatchExpressionBase, block: Optional[ast.Block] = None):
+        parent_block = self.block
+        parent_position = self.position
+
+        self.position_before(query, block)
+        yield
+
+        self.block = parent_block
+        self.position = parent_position
+
+    @contextmanager
+    def goto_after(self, query: MatchExpressionBase, block: Optional[ast.Block] = None):
+        parent_block = self.block
+        parent_position = self.position
+
+        self.position_after(query, block)
+        yield
+
+        self.block = parent_block
+        self.position = parent_position
+
     def make_attribute_entry(self, name: str, value: ast.Attribute):
         raise NotImplementedError()
+
+    # {{{ standard dialect
 
     def addf(self, op_a: ast.SsaId, op_b: ast.SsaId, type: ast.Type,
              name: Optional[str] = None):
@@ -207,9 +245,6 @@ class IRBuilder:
              name: Optional[str] = None):
         op = std.MulfOperation(_match=0, operand_a=op_a, operand_b=op_b, type=type)
         return self._append_op_to_block([name], op)
-
-    def return_from_function(self):
-        raise NotImplementedError()
 
     def dim(self, memref_or_tensor: ast.SsaId, index: ast.SsaId,
             memref_type: Union[ast.MemRefType, ast.TensorType],
@@ -224,6 +259,10 @@ class IRBuilder:
     def float_constant(self, value: float, type: ast.FloatType, name: Optional[str] = None):
         op = std.ConstantOperation(_match=0, value=value, type=type)
         return self._append_op_to_block([name], op)
+
+    # }}}
+
+    # {{{ affine dialect
 
     def affine_for(self, lower_bound: Union[int, ast.SsaId],
                    upper_bound: Union[int, ast.SsaId],
@@ -270,3 +309,8 @@ class IRBuilder:
         self._append_op_to_block([], op)
         self.block = None
         self.position = 0
+
+    # }}}
+
+
+# vim: fdm=marker
