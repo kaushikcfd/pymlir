@@ -32,7 +32,6 @@ class IRBuilder:
         * This class shared design elements from :class:`llvmlite.ir.IRBuilder`,
           querying mechanism from :mod:`loopy`
 
-
     Position/block manipulation
     ===========================
     .. automethod:: position_at_start
@@ -246,7 +245,7 @@ class IRBuilder:
 
         try:
             self.position = next((i
-                                  for i, op in zip(range(len(self.block)-1, -1, -1),
+                                  for i, op in zip(range(len(self.block.body)-1, -1, -1),
                                                    reversed(self.block.body))
                                   if query(op))) + 1
         except StopIteration:
@@ -258,10 +257,18 @@ class IRBuilder:
         parent_position = self.position
 
         self.position_before(query, block)
+
+        entered_at = self.position
         yield
 
+        exit_at = self.position
         self.block = parent_block
-        self.position = parent_position
+
+        # accounting for operations added within the context
+        if entered_at <= parent_position:
+            parent_position += (exit_at - entered_at)
+
+        self.position = parent_position + (exit_at - entered_at)
 
     @contextmanager
     def goto_after(self, query: MatchExpressionBase, block: Optional[ast.Block] = None):
@@ -269,9 +276,17 @@ class IRBuilder:
         parent_position = self.position
 
         self.position_after(query, block)
+
+        entered_at = self.position
         yield
 
+        exit_at = self.position
         self.block = parent_block
+
+        # accounting for operations added within the context
+        if entered_at <= parent_position:
+            parent_position += (exit_at - entered_at)
+
         self.position = parent_position
 
     # }}}

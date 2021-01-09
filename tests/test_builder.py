@@ -1,8 +1,9 @@
 import sys
 from mlir import parse_string
 from mlir.builder import IRBuilder
-from mlir.builder import Reads, Writes, Isa, And
+from mlir.builder import Reads, Writes, Isa, Not
 from mlir.dialects.affine import AffineLoadOp
+from mlir.dialects.standard import AddfOperation
 
 
 def test_saxpy_builder():
@@ -65,6 +66,42 @@ return
             == "%yi = affine.load %y [ %i ] : memref<?xf64>")
 
     assert query(Reads(c0)).dump() == "%n = dim %x , %c0 : memref<?xf64>"
+
+
+def test_build_with_queries():
+    builder = IRBuilder()
+    F64 = builder.F64
+
+    mlirfile = builder.make_mlir_file()
+    module = mlirfile.module
+
+    with builder.goto_block(builder.make_block(module.region)):
+        fn = builder.function("unorderly_adds")
+
+    a0, a1, b0, b1, c0, c1 = builder.add_function_args(fn, [F64]*6)
+
+    fnbody = builder.make_block(fn.region)
+    builder.position_at_start(fnbody)
+
+    def index(expr):
+        return next((i
+                   for i, op in enumerate(fnbody.body)
+                   if expr(op)))
+
+    builder.addf(a0, a1, F64)
+
+    with builder.goto_before(Reads(a0) & Reads(a1)):
+        builder.addf(b0, b1, F64)
+
+    with builder.goto_after(Reads(b0) & Isa(AddfOperation)):
+        builder.addf(c0, c1, F64)
+
+    builder.ret()
+
+    assert index(Reads(b0)) == 0
+    assert index(Reads(c0)) == 1
+    assert index(Reads(a0)) == 2
+
 
 
 if __name__ == "__main__":
