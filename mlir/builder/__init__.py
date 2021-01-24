@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import mlir.astnodes as ast
 import mlir.dialects.standard as std
 import mlir.dialects.affine as affine
+import mlir.dialects.linalg as linalg
 from typing import Optional, Tuple, Union, List
 from pytools import UniqueNameGenerator
 from contextlib import contextmanager
@@ -199,6 +200,40 @@ class IRBuilder:
         for name, dtype, pos in zip(names, dtypes, positions):
             arg = ast.SsaId(name)
             function.args.insert(pos, ast.NamedArgument(arg, dtype))
+            args.append(arg)
+
+        return args
+
+    def add_block_args(self, dtypes: List[ast.Type],
+                       names: Optional[List[str]] = None,
+                       positions: Optional[List[int]] = None):
+        """
+        Adds arguments to the current block.
+
+        :arg dtypes: Types of the arguments to be added to the block.
+        :arg names: Names of the arguments to be added to the block.
+        :arg positions: Positions where the arguments are to be inserted.
+        """
+        if names is None:
+            names = [self.name_gen("bbarg") for _ in dtypes]
+
+        if self.block.label.arg_ids is None:
+            self.block.label.arg_ids = []
+            assert self.block.label.arg_dtypes is None
+            self.block.label.arg_types = []
+
+        assert (self.block.label.arg_dtypes is None
+                and self.block.label.arg_ids is None)
+
+        if positions is None:
+            positions = list(range(len(self.block.arg_types), len(self.block.arg_types) + len(dtypes)))
+
+        args = []
+
+        for name, dtype, pos in zip(names, dtypes, positions):
+            arg = ast.SsaId(name)
+            self.block.arg_ids.insert(pos, arg)
+            self.block.arg_types.insert(pos, dtype)
             args.append(arg)
 
         return args
@@ -498,6 +533,77 @@ class IRBuilder:
                                   index=ast.MultiDimAffineExpr(indices), type=memref_type)
         self._insert_op_in_block([], op)
 
+    @classmethod
+    def make_affine_dim(cls, name: str):
+        return ast.AffineDimOrSymbol(name)
+
+    @classmethod
+    def make_affine_symbol(cls, name: str):
+        return ast.AffineDimOrSymbol(name)
+
+    @classmethod
+    def make_affine_map(self, expr: ast.MultiDimAffineExpr, dims: List[str], symbols: Optional[List[str]] = None):
+        return ast.AffineMaps(ast.DimAndSymbolList(dims, symbols), expr)
+
+    @classmethod
+    def make_identity_map(self, dim: int):
+        raise NotImplementedError()
+
+    # }}}
+
+    # {{{ linalg dialect
+
+    def linalg_generic(self, iterator_types: List[str]):
+        assert all(iterator in ["parallel", "reduction"] for iterator in iterator_types)
+        array_attr = ast.ArrayAttr([ast.StringAttr(ast.StringLiteral(it), None)
+                                    for it in iterator_types])
+        return linalg.LinalgGeneric(None, None, ast.Region(), None, None, None, None,
+                None, ast.AttributeDict([ast.AttributeEntry("iterator_types", array_attr)]))
+
+    def linalg_generic_add_out(self, lgen: linalg.LinalgGeneric, out_arg: ast.SsaId,
+            out_type: ast.MemRefType, indexing_map: ast.AffineMap, name: Optional[str] = None):
+        if lgen.out_args is None:
+            assert lgen.out_types is None
+            lgen.out_args = []
+            lgen.out_types = []
+
+        lgen.out_args.insert(out_arg)
+        lgen.out_types.insert(out_type)
+
+        assert isinstance(lgen.attr, ast.AttributeDict)
+        if all(val.name != "indexing_maps" for val in lgen.attr.values):
+            lgen.attr.append(ast.AttributeEntry("indexing_maps", ast.ArrayAttr([])))
+
+        indexing_maps, = [val for val in lgen.attr.values if val.name == "indexing_maps"]
+        indexing_maps.values.append(indexing_map)
+
+        arg, = self.add_block_args([out_arg], [out_type.element_type], [name])
+
+        return arg
+
+    def linalg_generic_add_in(self, lgen: linalg.LinalgGeneric, in_arg: ast.SsaId,
+            in_type: ast.MemRefType, indexing_map: ast.AffineMap, name: Optional[str] = None):
+        if lgen.in_args is None:
+            assert lgen.in_types is None
+            lgen.in_args = []
+            lgen.in_types = []
+
+        lgen.in_args.insert(in_arg)
+        lgen.in_types.insert(in_type)
+
+        assert isinstance(lgen.attr, ast.AttributeDict)
+        if all(val.name != "indexing_maps" for val in lgen.attr.values):
+            lgen.attr.append(ast.AttributeEntry("indexing_maps", ast.ArrayAttr([])))
+
+        indexing_maps, = [val for val in lgen.attr.values if val.name == "indexing_maps"]
+        indexing_maps.values.append(indexing_map)
+
+        arg, = self.add_block_args([in_arg], [in_type.element_type], [name], [0])
+
+        return arg
+
+    # }}}
+
     def ret(self, values: Optional[List[ast.SsaId]] = None,
             types: Optional[List[ast.Type]] = None):
 
@@ -505,8 +611,6 @@ class IRBuilder:
         self._insert_op_in_block([], op)
         self.block = None
         self.position = 0
-
-    # }}}
 
 
 # vim: fdm=marker
