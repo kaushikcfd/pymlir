@@ -357,7 +357,7 @@ class SparseElementsAttr(ElementsAttr):
 @dataclass
 class PrimitiveAttribute(Attribute):
     value: Any
-    type: Type
+    type: Optional[Type]
 
     def dump(self, indent: int = 0) -> str:
         return dump_or_value(self.value, indent) + (
