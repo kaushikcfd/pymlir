@@ -217,23 +217,26 @@ class IRBuilder:
         if names is None:
             names = [self.name_gen("bbarg") for _ in dtypes]
 
+        if self.block.label is None:
+            self.block.label = ast.BlockLabel(self.name_gen("bb"), [], [])
+
         if self.block.label.arg_ids is None:
             self.block.label.arg_ids = []
-            assert self.block.label.arg_dtypes is None
+            assert self.block.label.arg_types is None
             self.block.label.arg_types = []
 
-        assert (self.block.label.arg_dtypes is None
-                and self.block.label.arg_ids is None)
+        assert (self.block.label.arg_types is not None
+                and self.block.label.arg_ids is not None)
 
         if positions is None:
-            positions = list(range(len(self.block.arg_types), len(self.block.arg_types) + len(dtypes)))
+            positions = list(range(len(self.block.label.arg_types), len(self.block.label.arg_types) + len(dtypes)))
 
         args = []
 
         for name, dtype, pos in zip(names, dtypes, positions):
             arg = ast.SsaId(name)
-            self.block.arg_ids.insert(pos, arg)
-            self.block.arg_types.insert(pos, dtype)
+            self.block.label.arg_ids.insert(pos, arg)
+            self.block.label.arg_types.insert(pos, dtype)
             args.append(arg)
 
         return args
@@ -472,9 +475,19 @@ class IRBuilder:
         op = std.AddfOperation(_match=0, operand_a=op_a, operand_b=op_b, type=type)
         return self._insert_op_in_block([name], op)
 
+    def addi(self, op_a: ast.SsaId, op_b: ast.SsaId, type: ast.Type,
+             name: Optional[str] = None):
+        op = std.AddiOperation(_match=0, operand_a=op_a, operand_b=op_b, type=type)
+        return self._insert_op_in_block([name], op)
+
     def mulf(self, op_a: ast.SsaId, op_b: ast.SsaId, type: ast.Type,
              name: Optional[str] = None):
         op = std.MulfOperation(_match=0, operand_a=op_a, operand_b=op_b, type=type)
+        return self._insert_op_in_block([name], op)
+
+    def muli(self, op_a: ast.SsaId, op_b: ast.SsaId, type: ast.Type,
+             name: Optional[str] = None):
+        op = std.MuliOperation(_match=0, operand_a=op_a, operand_b=op_b, type=type)
         return self._insert_op_in_block([name], op)
 
     def dim(self, memref_or_tensor: ast.SsaId, index: ast.SsaId,
@@ -543,11 +556,13 @@ class IRBuilder:
 
     @classmethod
     def make_affine_map(self, expr: ast.MultiDimAffineExpr, dims: List[str], symbols: Optional[List[str]] = None):
-        return ast.AffineMaps(ast.DimAndSymbolList(dims, symbols), expr)
+        return ast.AffineMap(ast.DimAndSymbolList(dims, symbols), expr)
 
     @classmethod
-    def make_identity_map(self, dim: int):
-        raise NotImplementedError()
+    def make_identity_map(self, ndim: int):
+        dim_names = [f"_{i}" for i in range(ndim)]
+        expr = [self.make_affine_dim(dim_name) for dim_name in dim_names]
+        return self.make_affine_map(expr, dim_names)
 
     # }}}
 
@@ -557,50 +572,56 @@ class IRBuilder:
         assert all(iterator in ["parallel", "reduction"] for iterator in iterator_types)
         array_attr = ast.ArrayAttr([ast.StringAttr(ast.StringLiteral(it), None)
                                     for it in iterator_types])
-        return linalg.LinalgGeneric(None, None, ast.Region(), None, None, None, None,
+        op = linalg.LinalgGeneric(0, None, None, ast.Region([]), None, None, None, None,
                 None, ast.AttributeDict([ast.AttributeEntry("iterator_types", array_attr)]))
+        self._insert_op_in_block([], op)
+        return op
 
     def linalg_generic_add_out(self, lgen: linalg.LinalgGeneric, out_arg: ast.SsaId,
             out_type: ast.MemRefType, indexing_map: ast.AffineMap, name: Optional[str] = None):
-        if lgen.out_args is None:
+        if lgen.outargs is None:
             assert lgen.out_types is None
-            lgen.out_args = []
+            lgen.outargs = []
             lgen.out_types = []
 
-        lgen.out_args.insert(out_arg)
-        lgen.out_types.insert(out_type)
+        lgen.outargs.append(out_arg)
+        lgen.out_types.append(out_type)
 
         assert isinstance(lgen.attr, ast.AttributeDict)
         if all(val.name != "indexing_maps" for val in lgen.attr.values):
-            lgen.attr.append(ast.AttributeEntry("indexing_maps", ast.ArrayAttr([])))
+            lgen.attr.values.append(ast.AttributeEntry("indexing_maps", ast.ArrayAttr([])))
 
-        indexing_maps, = [val for val in lgen.attr.values if val.name == "indexing_maps"]
-        indexing_maps.values.append(indexing_map)
+        indexing_maps, = [val.value for val in lgen.attr.values if val.name == "indexing_maps"]
+        indexing_maps.value.append(indexing_map)
 
-        arg, = self.add_block_args([out_arg], [out_type.element_type], [name])
+        arg, = self.add_block_args([out_type.element_type], [name] if name else None)
 
         return arg
 
     def linalg_generic_add_in(self, lgen: linalg.LinalgGeneric, in_arg: ast.SsaId,
             in_type: ast.MemRefType, indexing_map: ast.AffineMap, name: Optional[str] = None):
-        if lgen.in_args is None:
+        if lgen.inargs is None:
             assert lgen.in_types is None
-            lgen.in_args = []
+            lgen.inargs = []
             lgen.in_types = []
 
-        lgen.in_args.insert(in_arg)
-        lgen.in_types.insert(in_type)
+        lgen.inargs.insert(0, in_arg)
+        lgen.in_types.insert(0, in_type)
 
         assert isinstance(lgen.attr, ast.AttributeDict)
         if all(val.name != "indexing_maps" for val in lgen.attr.values):
-            lgen.attr.append(ast.AttributeEntry("indexing_maps", ast.ArrayAttr([])))
+            lgen.attr.values.append(ast.AttributeEntry("indexing_maps", ast.ArrayAttr([])))
 
-        indexing_maps, = [val for val in lgen.attr.values if val.name == "indexing_maps"]
-        indexing_maps.values.append(indexing_map)
+        indexing_maps, = [val.value for val in lgen.attr.values if val.name == "indexing_maps"]
+        indexing_maps.value.insert(0, indexing_map)
 
-        arg, = self.add_block_args([in_arg], [in_type.element_type], [name], [0])
+        arg, = self.add_block_args([in_type.element_type], [name] if name else None, [0])
 
         return arg
+
+    def linalg_yield(self, arg_id: ast.SsaId, type: ast.Type):
+        op = linalg.LinalgYield(0, arg_id, type)
+        self._insert_op_in_block([], op)
 
     # }}}
 
