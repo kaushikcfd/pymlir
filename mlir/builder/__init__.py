@@ -561,7 +561,8 @@ class IRBuilder:
     @classmethod
     def make_identity_map(self, ndim: int):
         dim_names = [f"_{i}" for i in range(ndim)]
-        expr = [self.make_affine_dim(dim_name) for dim_name in dim_names]
+        expr = ast.MultiDimAffineExpr([self.make_affine_dim(dim_name) for dim_name
+            in dim_names])
         return self.make_affine_map(expr, dim_names)
 
     # }}}
