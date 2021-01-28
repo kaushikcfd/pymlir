@@ -218,7 +218,7 @@ class IRBuilder:
             names = [self.name_gen("bbarg") for _ in dtypes]
 
         if self.block.label is None:
-            self.block.label = ast.BlockLabel(self.name_gen("bb"), [], [])
+            self.block.label = ast.BlockLabel(ast.BlockId(self.name_gen("bb")), [], [])
 
         if self.block.label.arg_ids is None:
             self.block.label.arg_ids = []
