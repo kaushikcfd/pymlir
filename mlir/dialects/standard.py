@@ -169,7 +169,6 @@ class ExpOperation(UnaryOperation): _opname_ = 'exp'
 class NegfOperation(UnaryOperation): _opname_ = 'negf'
 class TanhOperation(UnaryOperation): _opname_ = 'tanh'
 class CopysignOperation(UnaryOperation): _opname_ = 'copysign'
-class SIToFPOperation(UnaryOperation): _opname_ = 'sitofp'
 
 # Arithmetic Operations
 class AddiOperation(BinaryOperation): _opname_ = 'addi'
@@ -219,6 +218,14 @@ class IndexCastOperation(DialectOp):
     src_type: ast.Type
     dst_type: ast.Type
     _syntax_ = 'index_cast {arg.ssa_use} : {src_type.type} to {dst_type.type}'
+
+
+@dataclass
+class SIToFPOperation(DialectOp):
+    arg: SsaUse
+    src_type: ast.Type
+    dst_type: ast.Type
+    _syntax_ = 'sitofp {arg.ssa_use} : {src_type.type} to {dst_type.type}'
 
 
 @dataclass
