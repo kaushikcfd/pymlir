@@ -159,8 +159,8 @@ class IRBuilder:
         self._insert_op_in_block([], op)
         return op
 
-    @classmethod
-    def make_block(cls, region: ast.Region, name: Optional[str] = None) -> ast.Block:
+    @staticmethod
+    def make_block(region: ast.Region, name: Optional[str] = None) -> ast.Block:
         """
         Appends a :class:`mlir.astnodes.Block` with name *name* to the *region*.
 
@@ -241,8 +241,8 @@ class IRBuilder:
 
         return args
 
-    def MemRefType(self,
-                   dtype: ast.Type,
+    @staticmethod
+    def MemRefType(dtype: ast.Type,
                    shape: Optional[Tuple[Optional[int], ...]],
                    offset: Optional[int] = None,
                    strides: Optional[Tuple[Optional[int], ...]] = None) -> ast.MemRefType:
