@@ -508,6 +508,10 @@ class IRBuilder:
         op = std.SIToFPOperation(_match=0, arg=operand, src_type=src_type, dst_type=dst_type)
         return self._insert_op_in_block([name], op)
 
+    def index_cast(self, operand: ast.SsaId, src_type: ast.Type, dst_type: ast.Type, name: Optional[str] = None) -> ast.SsaId:
+        op = std.IndexCastOperation(_match=0, arg=operand, src_type=src_type, dst_type=dst_type)
+        return self._insert_op_in_block([name], op)
+
     # }}}
 
     # {{{ affine dialect
